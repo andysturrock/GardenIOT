@@ -39,7 +39,7 @@ export class LambdaStack extends cdk.Stack {
 
     const customDomainName = getEnv('CUSTOM_DOMAIN_NAME')!;
     const r53ZoneId = getEnv('R53_ZONE_ID')!;
-    const versionId='1.2.3.4';
+    const lambdaVersion = getEnv('LAMBDA_VERSION')!;
 
     // Get hold of the hosted zone which has previously been created
     const zone = route53.HostedZone.fromHostedZoneAttributes(this, 'R53Zone', {
@@ -76,7 +76,7 @@ export class LambdaStack extends cdk.Stack {
     // We want to create the stage to match the version id.
     // Semantic versioning has dots as separators but this is invalid in a URL
     // so replace the dots with underscores first.
-    const versionIdForURL = versionId.replace(/\./g, '_');
+    const versionIdForURL = lambdaVersion.replace(/\./g, '_');
     const apiGatewayDeployment = new apigateway.Deployment(this, 'ApiGatewayDeployment', {
       api: api
     });

@@ -81,7 +81,7 @@ class _TemperatureDialState extends State<TemperatureDial> {
     print("In getTemp for ${widget.location}");
 
     final response = await http.get(Uri.parse(
-        'https://api.gardeniot.dev.goatsinlace.com/1_2_3_4/temperature?name1=value1'));
+        'https://api.gardeniot.dev.goatsinlace.com/0_0_1/temperature?name1=value1'));
 
     if (response.statusCode == 200) {
       final temperatureResultList =
