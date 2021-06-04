@@ -17,25 +17,29 @@ export class LambdaStack extends cdk.Stack {
       iam.PermissionsBoundary.of(this).apply(boundary);
     }
 
-    // Create the temperature lambda
-    const temperatureLambda = new lambda.Function(this, "TemperatureLambda", {
+    // Create the temperature lambdas
+    const temperatureGetLambda = new lambda.Function(this, "TemperatureGetLambda", {
       runtime: lambda.Runtime.NODEJS_14_X,
       code: lambda.Code.fromAsset("../lambda-code/dist/lambda.zip"),
-      handler: "temperature.lambdaHandler",
-      timeout: cdk.Duration.minutes(5), // 5 mins should be more than enough.
+      handler: "temperature_get.lambdaHandler"
+    });
+
+    const temperaturePostLambda = new lambda.Function(this, "TemperaturePostLambda", {
+      runtime: lambda.Runtime.NODEJS_14_X,
+      code: lambda.Code.fromAsset("../lambda-code/dist/lambda.zip"),
+      handler: "temperature_post.lambdaHandler"
     });
 
     // And the moisture lambda
-    const moistureLambda = new lambda.Function(this, "MoistureLambda", {
+    const moistureGetLambda = new lambda.Function(this, "MoistureGetLambda", {
       runtime: lambda.Runtime.NODEJS_14_X,
       code: lambda.Code.fromAsset("../lambda-code/dist/lambda.zip"),
-      handler: "moisture.lambdaHandler",
-      timeout: cdk.Duration.minutes(5), // 5 mins should be more than enough.
+      handler: "moisture_get.lambdaHandler"
     });
 
     // Allow it access to SecretsManager.  Strangely there is no Read-only managed policy.
     const secretsManagerReadPolicy = iam.ManagedPolicy.fromAwsManagedPolicyName("SecretsManagerReadWrite");
-    temperatureLambda.role?.addManagedPolicy(secretsManagerReadPolicy);
+    temperatureGetLambda.role?.addManagedPolicy(secretsManagerReadPolicy);
 
     const customDomainName = getEnv('CUSTOM_DOMAIN_NAME')!;
     const r53ZoneId = getEnv('R53_ZONE_ID')!;
@@ -88,17 +92,21 @@ export class LambdaStack extends cdk.Stack {
     })
 
     // Connect the API to the lambdas
-    const temperatureLambdaIntegration = new apigateway.LambdaIntegration(temperatureLambda, {
+    const temperatureGetLambdaIntegration = new apigateway.LambdaIntegration(temperatureGetLambda, {
+      requestTemplates: { "application/json": '{ "statusCode": "200" }' }
+    });
+    const temperaturePostLambdaIntegration = new apigateway.LambdaIntegration(temperaturePostLambda, {
       requestTemplates: { "application/json": '{ "statusCode": "200" }' }
     });
     const temperatureResource = api.root.addResource('temperature');
-    temperatureResource.addMethod("GET", temperatureLambdaIntegration);
+    temperatureResource.addMethod("GET", temperatureGetLambdaIntegration);
+    temperatureResource.addMethod("POST", temperaturePostLambdaIntegration);
 
-    const moistureLambdaIntegration = new apigateway.LambdaIntegration(moistureLambda, {
+    const moistureGetLambdaIntegration = new apigateway.LambdaIntegration(moistureGetLambda, {
       requestTemplates: { "application/json": '{ "statusCode": "200" }' }
     });
     const moistureResource = api.root.addResource('moisture');
-    moistureResource.addMethod("GET", moistureLambdaIntegration);
+    moistureResource.addMethod("GET", moistureGetLambdaIntegration);
 
     // Create the R53 "A" record to map from the custom domain to the actual API URL
     new route53.ARecord(this, 'CustomDomainAliasRecord', {
@@ -108,6 +116,5 @@ export class LambdaStack extends cdk.Stack {
     });
     // And path mapping to the API
     customDomain.addBasePathMapping(api, { basePath: `${versionIdForURL}`, stage: stage });
-
   }
 }

@@ -18,7 +18,6 @@ export class IAMStack extends cdk.Stack {
         'cloudformation:DescribeChangeSet',
         'cloudformation:ExecuteChangeSet',
         'cloudformation:DescribeStackEvents',
-        's3:*', // TODO - be more specific here.  Not too harmful as should only be granted to the role used for CI/CD.
         'iam:CreateRole',
         'iam:DetachRolePolicy',
         'iam:AttachRolePolicy',
@@ -55,8 +54,12 @@ export class IAMStack extends cdk.Stack {
         'route53:GetHostedZone',
         'route53:ChangeResourceRecordSets',
         'route53:GetChange',
-        'route53:GetChangeRequest',
-        'route53:ListResourceRecordSets'
+        'route53:ListResourceRecordSets',
+        'dynamodb:CreateTable',
+        'dynamodb:DescribeTable',
+        'application-autoscaling:DescribeScalableTargets',
+        'application-autoscaling:RegisterScalableTarget',
+        'application-autoscaling:DeregisterScalableTarget'
       ],
       resources: ['*']
     };
@@ -73,7 +76,7 @@ export class IAMStack extends cdk.Stack {
     if(groupArn) {
       const group = iam.Group.fromGroupArn(this, "Role", groupArn!);
       const policyStatement = new iam.PolicyStatement(policyStatementProps)
-      const policyProps = {group: [group], statements: [policyStatement]};
+      const policyProps = {policyName: "AUTOMATION_policy", groups: [group], statements: [policyStatement]};
       new iam.Policy(this, "Policy", policyProps);
     }
   }

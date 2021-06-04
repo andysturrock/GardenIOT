@@ -1,4 +1,4 @@
-import { lambdaHandler } from './temperature';
+import { lambdaHandler } from './temperature_get';
 
 require('dotenv').config()
 
