@@ -1,4 +1,4 @@
-import * as cdk from 'aws-sdk';
+import { DynamoDBClient, PutItemCommand } from '@aws-sdk/client-dynamodb';
 
 async function lambdaHandler(event: any): Promise<any> {
   try {
@@ -7,6 +7,20 @@ async function lambdaHandler(event: any): Promise<any> {
 
     const body = JSON.parse(event.body);
     console.debug(`body = ${JSON.stringify(body)}`);
+
+    const ddbClient = new DynamoDBClient({});
+
+    const params = {
+      TableName: "Temperature",
+      Item: {
+        timestamp: { N: "1" },
+        sensor_id: { N: "0" },
+        temperature: { N: "13.57" }
+      },
+    };
+
+    const data = await ddbClient.send(new PutItemCommand(params));
+    console.log(data);
 
     return {
       statusCode: 200,

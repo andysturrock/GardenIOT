@@ -5,10 +5,11 @@ import * as iam from "@aws-cdk/aws-iam";
 import * as route53 from '@aws-cdk/aws-route53';
 import * as acm from '@aws-cdk/aws-certificatemanager';
 import * as apigateway from "@aws-cdk/aws-apigateway";
-import getEnv from './common';
+import * as dynamodb from '@aws-cdk/aws-dynamodb';
+import { getEnv, LambdaStackProps } from './common';
 
 export class LambdaStack extends cdk.Stack {
-  constructor(scope: cdk.Construct, id: string, props?: cdk.StackProps) {
+  constructor(scope: cdk.Construct, id: string, props: LambdaStackProps) {
     super(scope, id, props);
 
     const policyArn = getEnv('AWS_BOUNDARY_POLICY_ARN');
@@ -40,6 +41,10 @@ export class LambdaStack extends cdk.Stack {
     // Allow it access to SecretsManager.  Strangely there is no Read-only managed policy.
     const secretsManagerReadPolicy = iam.ManagedPolicy.fromAwsManagedPolicyName("SecretsManagerReadWrite");
     temperatureGetLambda.role?.addManagedPolicy(secretsManagerReadPolicy);
+
+    // Allow the temperature Lambdas appropriate access to the Temperature DyanamoDB table
+    props.temperatureTable.grantReadData(temperatureGetLambda);
+    props.temperatureTable.grantReadWriteData(temperaturePostLambda);
 
     const customDomainName = getEnv('CUSTOM_DOMAIN_NAME')!;
     const r53ZoneId = getEnv('R53_ZONE_ID')!;

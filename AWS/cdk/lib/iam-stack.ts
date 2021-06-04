@@ -1,6 +1,6 @@
 import * as cdk from '@aws-cdk/core';
 import * as iam from "@aws-cdk/aws-iam";
-import getEnv from './common';
+import { getEnv } from './common';
 
 export class IAMStack extends cdk.Stack {
   constructor(scope: cdk.Construct, id: string, props?: cdk.StackProps) {
@@ -62,7 +62,8 @@ export class IAMStack extends cdk.Stack {
         'application-autoscaling:DeregisterScalableTarget',
         'application-autoscaling:DescribeScalingPolicies',
         'application-autoscaling:PutScalingPolicy',
-        'application-autoscaling:DeleteScalingPolicy'
+        'application-autoscaling:DeleteScalingPolicy',
+        's3:*' // TODO - make this least privilege.  Docs are hopeless for what you actually need.
       ],
       resources: ['*']
     };
