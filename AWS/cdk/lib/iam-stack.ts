@@ -59,7 +59,10 @@ export class IAMStack extends cdk.Stack {
         'dynamodb:DescribeTable',
         'application-autoscaling:DescribeScalableTargets',
         'application-autoscaling:RegisterScalableTarget',
-        'application-autoscaling:DeregisterScalableTarget'
+        'application-autoscaling:DeregisterScalableTarget',
+        'application-autoscaling:DescribeScalingPolicies',
+        'application-autoscaling:PutScalingPolicy',
+        'application-autoscaling:DeleteScalingPolicy'
       ],
       resources: ['*']
     };
