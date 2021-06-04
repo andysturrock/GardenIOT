@@ -1,4 +1,4 @@
-import { DynamoDBClient, PutItemCommand } from '@aws-sdk/client-dynamodb';
+import { DynamoDBClient, PutItemCommand, PutItemCommandInput } from '@aws-sdk/client-dynamodb';
 
 async function lambdaHandler(event: any): Promise<any> {
   try {
@@ -8,23 +8,42 @@ async function lambdaHandler(event: any): Promise<any> {
     const body = JSON.parse(event.body);
     console.debug(`body = ${JSON.stringify(body)}`);
 
+    let params: Array<PutItemCommandInput> = [];
+
+    for (const item of body) {
+      console.debug(`item = ${JSON.stringify(item)}`)
+      if (!('sensor_id' in item)) {
+        return {
+          statusCode: 400,
+          body: `Missing sensor_id field`
+        }
+      }
+      if (!('temperature' in item)) {
+        return {
+          statusCode: 400,
+          body: `Missing temperature field`
+        }
+      }
+      params.push({
+        TableName: "Temperature",
+        Item: {
+          timestamp: { N: "2" },
+          sensor_id: { N: `${item.sensor_id}` },
+          temperature: { N: `${item.temperature}` }
+        },
+      })
+    }
+
     const ddbClient = new DynamoDBClient({});
 
-    const params = {
-      TableName: "Temperature",
-      Item: {
-        timestamp: { N: "1" },
-        sensor_id: { N: "0" },
-        temperature: { N: "13.57" }
-      },
-    };
-
-    const data = await ddbClient.send(new PutItemCommand(params));
-    console.log(data);
+    for(const param of params) {
+      const data = await ddbClient.send(new PutItemCommand(param));
+      console.log(data);
+    }
 
     return {
       statusCode: 200,
-      body: `${JSON.stringify({"OK": "OK"})}`
+      body: `${JSON.stringify({ "OK": "OK" })}`
     }
   }
   catch (err) {
