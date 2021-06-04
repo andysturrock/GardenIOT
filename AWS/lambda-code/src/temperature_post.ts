@@ -32,14 +32,16 @@ async function lambdaHandler(event: any): Promise<any> {
 
     const ddbClient = new DynamoDBClient({});
 
+    let count = 0;
     for(const param of params) {
       console.info(`Inserting: ${JSON.stringify(param)}`);
       const data = await ddbClient.send(new PutItemCommand(param));
+      ++count;
     }
 
     return {
       statusCode: 200,
-      body: `${JSON.stringify({ "OK": "OK" })}`
+      body: `${JSON.stringify({ "InsertCount": `${count}` })}`
     }
   }
   catch (err) {

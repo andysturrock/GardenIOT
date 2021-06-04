@@ -108,7 +108,10 @@ function createPostEvent() {
       "domainName": "api.gardeniot.dev.goatsinlace.com",
       "apiId": "brnf1jaz10"
     },
-    "body": "[\r\n    {\r\n        \"sensor_id\": 0,\r\n        \"temperature\": \"17.05\"\r\n    }\r\n]",
+    "body": `[
+      {"sensor_id": 0,"temperature": "17.05"},
+      {"sensor_id": 1,"temperature": "19.25"}
+    ]`,
     "isBase64Encoded": false
   }
 }
