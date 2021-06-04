@@ -1,26 +1,44 @@
-function getRandomTemperature() : Number {
-  const min = -10;
-  const max = 40;
-  return Math.random() * (max - min) + min
-}
+import { DynamoDBClient, QueryCommand, QueryCommandInput, QueryCommandOutput } from '@aws-sdk/client-dynamodb';
 
 async function lambdaHandler(event: any): Promise<any> {
   try {
-    // console.debug(`Temperature event = ${JSON.stringify(event)}`);
-    console.debug(`params = ${JSON.stringify(event.queryStringParameters)}`);
+    const sensorIds: Array<number> = [];
+    for (const key in event.queryStringParameters) {
+      const sensorId = key.replace(/sensor_id/g, '');
+      sensorIds.push(Number.parseInt(sensorId));
+    }
+
+    const ddbClient = new DynamoDBClient({});
+
+    // Get the latest timestamp
+    const params: QueryCommandInput = {
+      TableName: "LastTimestamp",
+      KeyConditionExpression: "#table = :table",
+      ExpressionAttributeNames: {"#table": "table"},
+      ExpressionAttributeValues: { ":table" : {"S" : "Temperature"}}
+    };
+    const data = await ddbClient.send(new QueryCommand(params));
+    const timestamp = data.Items?.[0].timestamp.N;
+    console.debug(`Last timestamp on Temperature table was ${timestamp}`);
 
     let returnStruct = [];
-
-    let sensorId = 0;
-    for(const key in event.queryStringParameters) {
-      console.debug(`key = ${JSON.stringify(key)}`);
-      const value = event.queryStringParameters[key];
-      console.debug(`value = ${JSON.stringify(value)}`);
-
+    for (const sensorId of sensorIds) {
+      const params: QueryCommandInput = {
+        TableName: "Temperature",
+        KeyConditionExpression: "#timestamp = :timestamp AND sensor_id = :sensor_id",
+        ExpressionAttributeNames: {"#timestamp": "timestamp"},
+        ExpressionAttributeValues: {
+          ":sensor_id" : {"N" : `${sensorId}`},
+          ":timestamp" : {"N" : `${timestamp}`}
+        }
+      };
+      const data = await ddbClient.send(new QueryCommand(params));
+      const temperature = data.Items?.[0].temperature.N;
       returnStruct.push({
-        "sensor_id": sensorId++,
-        "temperature": getRandomTemperature().toFixed(2)
-      },)
+        "sensor_id": sensorId,
+        "temperature": `${temperature}`,
+        "timestamp": `${timestamp}`
+      })
     }
 
     return {

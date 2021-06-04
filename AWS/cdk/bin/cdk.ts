@@ -8,6 +8,7 @@ import { DynamoDBStack } from '../lib/dynamodb-stack';
 const app = new cdk.App();
 new IAMStack(app, 'IAMStack');
 const dynamoDBStack = new DynamoDBStack(app, 'DynamoDBStack');
-new LambdaStack(app, 'LambdaStack', { temperatureTable: dynamoDBStack.temperatureTable } );
-  
-
+new LambdaStack(app, 'LambdaStack', {
+  temperatureTable: dynamoDBStack.temperatureTable,
+  lastTimestampTable: dynamoDBStack.lastTimestampTable
+});

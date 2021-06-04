@@ -1,7 +1,9 @@
-import { DynamoDBClient, PutItemCommand, PutItemCommandInput } from '@aws-sdk/client-dynamodb';
+import { DynamoDBClient, PutItemCommand, PutItemCommandInput, UpdateItemCommand, UpdateItemCommandInput } from '@aws-sdk/client-dynamodb';
 
 async function lambdaHandler(event: any): Promise<any> {
   try {
+
+    const now = Date.now();
 
     // Check body contains data in correct format.
     const body = JSON.parse(event.body);
@@ -23,7 +25,7 @@ async function lambdaHandler(event: any): Promise<any> {
       params.push({
         TableName: "Temperature",
         Item: {
-          timestamp: { N: `${Date.now()}` },
+          timestamp: { N: `${now}` },
           sensor_id: { N: `${item.sensor_id}` },
           temperature: { N: `${item.temperature}` }
         },
@@ -33,11 +35,21 @@ async function lambdaHandler(event: any): Promise<any> {
     const ddbClient = new DynamoDBClient({});
 
     let count = 0;
-    for(const param of params) {
+    for (const param of params) {
       console.info(`Inserting: ${JSON.stringify(param)}`);
       const data = await ddbClient.send(new PutItemCommand(param));
       ++count;
     }
+
+    // Update the last timestamp table
+    const param: UpdateItemCommandInput = {
+      TableName: 'LastTimestamp',
+      Key: { "table": { S: 'Temperature' } },
+      UpdateExpression: "set #timestamp = :timestamp",
+      ExpressionAttributeNames: {"#timestamp": "timestamp"},
+      ExpressionAttributeValues: { ":timestamp": { "N": `${now}` } }
+    };
+    await ddbClient.send(new UpdateItemCommand(param));
 
     return {
       statusCode: 200,

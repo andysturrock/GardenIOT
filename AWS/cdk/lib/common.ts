@@ -5,6 +5,7 @@ require('dotenv').config()
 
 export interface LambdaStackProps extends cdk.StackProps {
   readonly temperatureTable: dynamodb.Table;
+  readonly lastTimestampTable: dynamodb.Table;
 }
 
 // Returns value of given environment variable, which may be read from .env file.
