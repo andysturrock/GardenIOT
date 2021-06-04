@@ -2,16 +2,12 @@ import { DynamoDBClient, PutItemCommand, PutItemCommandInput } from '@aws-sdk/cl
 
 async function lambdaHandler(event: any): Promise<any> {
   try {
-    console.debug(`Temperature event = ${JSON.stringify(event)}`);
-    console.debug(`event.body = ${JSON.stringify(event.body)}`);
 
+    // Check body contains data in correct format.
     const body = JSON.parse(event.body);
-    console.debug(`body = ${JSON.stringify(body)}`);
-
-    let params: Array<PutItemCommandInput> = [];
+    const params: Array<PutItemCommandInput> = [];
 
     for (const item of body) {
-      console.debug(`item = ${JSON.stringify(item)}`)
       if (!('sensor_id' in item)) {
         return {
           statusCode: 400,
@@ -27,7 +23,7 @@ async function lambdaHandler(event: any): Promise<any> {
       params.push({
         TableName: "Temperature",
         Item: {
-          timestamp: { N: "2" },
+          timestamp: { N: `${Date.now()}` },
           sensor_id: { N: `${item.sensor_id}` },
           temperature: { N: `${item.temperature}` }
         },
@@ -37,8 +33,8 @@ async function lambdaHandler(event: any): Promise<any> {
     const ddbClient = new DynamoDBClient({});
 
     for(const param of params) {
+      console.info(`Inserting: ${JSON.stringify(param)}`);
       const data = await ddbClient.send(new PutItemCommand(param));
-      console.log(data);
     }
 
     return {
