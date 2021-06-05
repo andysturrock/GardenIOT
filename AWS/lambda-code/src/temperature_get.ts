@@ -10,30 +10,19 @@ async function lambdaHandler(event: any): Promise<any> {
 
     const ddbClient = new DynamoDBClient({});
 
-    // Get the latest timestamp
-    const params: QueryCommandInput = {
-      TableName: "LastTimestamp",
-      KeyConditionExpression: "#table = :table",
-      ExpressionAttributeNames: {"#table": "table"},
-      ExpressionAttributeValues: { ":table" : {"S" : "Temperature"}}
-    };
-    const data = await ddbClient.send(new QueryCommand(params));
-    const timestamp = data.Items?.[0].timestamp.N;
-    console.debug(`Last timestamp on Temperature table was ${timestamp}`);
-
     let returnStruct = [];
     for (const sensorId of sensorIds) {
       const params: QueryCommandInput = {
-        TableName: "Temperature",
-        KeyConditionExpression: "#timestamp = :timestamp AND sensor_id = :sensor_id",
-        ExpressionAttributeNames: {"#timestamp": "timestamp"},
+        TableName: "LastSensorReading",
+        KeyConditionExpression: "sensor_type = :sensor_type AND sensor_id = :sensor_id",
         ExpressionAttributeValues: {
+          ":sensor_type" : {"S" : `temperature`},
           ":sensor_id" : {"N" : `${sensorId}`},
-          ":timestamp" : {"N" : `${timestamp}`}
         }
       };
       const data = await ddbClient.send(new QueryCommand(params));
-      const temperature = data.Items?.[0].temperature.N;
+      const temperature = data.Items?.[0].value.N;
+      const timestamp = data.Items?.[0].timestamp.N;
       returnStruct.push({
         "sensor_id": sensorId,
         "temperature": `${temperature}`,

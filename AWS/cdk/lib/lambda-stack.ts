@@ -43,10 +43,10 @@ export class LambdaStack extends cdk.Stack {
     temperatureGetLambda.role?.addManagedPolicy(secretsManagerReadPolicy);
 
     // Allow the  Lambdas appropriate access to the DyanamoDB tables
-    props.temperatureTable.grantReadData(temperatureGetLambda);
-    props.temperatureTable.grantReadWriteData(temperaturePostLambda);
-    props.lastTimestampTable.grantReadData(temperatureGetLambda);
-    props.lastTimestampTable.grantReadWriteData(temperaturePostLambda);
+    props.temperatureHistoryTable.grantReadData(temperatureGetLambda);
+    props.temperatureHistoryTable.grantReadWriteData(temperaturePostLambda);
+    props.lastSensorReadingTable.grantReadData(temperatureGetLambda);
+    props.lastSensorReadingTable.grantReadWriteData(temperaturePostLambda);
 
     const customDomainName = getEnv('CUSTOM_DOMAIN_NAME')!;
     const r53ZoneId = getEnv('R53_ZONE_ID')!;

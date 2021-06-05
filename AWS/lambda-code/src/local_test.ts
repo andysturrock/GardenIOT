@@ -18,8 +18,9 @@ async function testTemperaturePostHandler() {
 
   console.log(`result: ${JSON.stringify(result)}`);
 }
-testTemperatureGetHandler()
+
 // testTemperaturePostHandler()
+testTemperatureGetHandler()
 
 function createPostEvent() {
   return {

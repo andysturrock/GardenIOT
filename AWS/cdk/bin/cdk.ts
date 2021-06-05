@@ -9,6 +9,6 @@ const app = new cdk.App();
 new IAMStack(app, 'IAMStack');
 const dynamoDBStack = new DynamoDBStack(app, 'DynamoDBStack');
 new LambdaStack(app, 'LambdaStack', {
-  temperatureTable: dynamoDBStack.temperatureTable,
-  lastTimestampTable: dynamoDBStack.lastTimestampTable
+  temperatureHistoryTable: dynamoDBStack.temperatureHistoryTable,
+  lastSensorReadingTable: dynamoDBStack.lastSensorReadingTable
 });
