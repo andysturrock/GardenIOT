@@ -42,7 +42,7 @@ export class LambdaStack extends cdk.Stack {
     const secretsManagerReadPolicy = iam.ManagedPolicy.fromAwsManagedPolicyName("SecretsManagerReadWrite");
     temperatureGetLambda.role?.addManagedPolicy(secretsManagerReadPolicy);
 
-    // Allow the  Lambdas appropriate access to the DyanamoDB tables
+    // Allow the Lambdas appropriate access to the DyanamoDB tables
     props.temperatureHistoryTable.grantReadData(temperatureGetLambda);
     props.temperatureHistoryTable.grantReadWriteData(temperaturePostLambda);
     props.lastSensorReadingTable.grantReadData(temperatureGetLambda);
