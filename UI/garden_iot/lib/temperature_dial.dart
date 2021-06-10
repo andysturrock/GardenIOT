@@ -69,7 +69,7 @@ class TemperatureDial extends StatelessWidget {
                 widget: Container(
                     child: Text(temperature.toString(),
                         style: TextStyle(
-                            fontSize: 25, fontWeight: FontWeight.bold))),
+                            fontSize: 12, fontWeight: FontWeight.bold))),
                 angle: 90,
                 positionFactor: 0.5)
           ])

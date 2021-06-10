@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:garden_iot/dials_grid.dart';
 import 'package:garden_iot/temperature_dial.dart';
 import 'package:garden_iot/temperature_model.dart';
 import 'package:provider/provider.dart';
@@ -25,14 +26,10 @@ class MyApp extends StatelessWidget {
         theme: ThemeData(
           primaryColor: Colors.white,
         ),
-        // home: RandomWords(),
         home: Scaffold(
             appBar: AppBar(
-              title: Text('Greenhouse'),
+              title: Text('Garden IOT'),
             ),
-            body: TemperatureDial(
-                temperatureModel: context.read<TemperatureModel>(),
-                sensorId: 0,
-                name: "External")));
+            body: DialsGrid()));
   }
 }
