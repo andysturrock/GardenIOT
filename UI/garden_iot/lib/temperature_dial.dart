@@ -3,31 +3,45 @@ import 'package:syncfusion_flutter_gauges/gauges.dart';
 import 'package:garden_iot/temperature_model.dart';
 import 'package:provider/provider.dart';
 
-class TemperatureDial extends StatelessWidget {
-  final String _name;
-  final int _sensorId;
+class TemperatureDial extends StatefulWidget {
+  final String dialName;
+  final int sensorId;
+  final TemperatureModel temperatureModel;
 
-  TemperatureDial(
-      {Key? key,
-      required TemperatureModel temperatureModel,
-      required String name,
-      required int sensorId})
-      : _name = name,
-        _sensorId = sensorId,
-        super(key: key) {
-    temperatureModel.addSensor(sensorId);
+  TemperatureDial({
+    required this.temperatureModel,
+    required this.dialName,
+    required this.sensorId,
+  }) {}
+
+  @override
+  _TemperatureDialState createState() => _TemperatureDialState();
+}
+
+class _TemperatureDialState extends State<TemperatureDial> {
+  @override
+  void initState() {
+    super.initState();
+    widget.temperatureModel.addSensor(widget.sensorId);
+  }
+
+  @override
+  void dispose() {
+    widget.temperatureModel.removeSensor(widget.sensorId);
+    super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    final temperatureReading =
-        context.watch<TemperatureModel>().getCurrentTemperature(_sensorId);
+    final temperatureReading = context
+        .watch<TemperatureModel>()
+        .getCurrentTemperature(widget.sensorId);
     final temperature =
         (temperatureReading == null) ? 0.00 : temperatureReading.temperature;
     print("build: temperature = ${temperature}");
     return SfRadialGauge(
         title: GaugeTitle(
-            text: _name,
+            text: widget.dialName,
             textStyle:
                 const TextStyle(fontSize: 20.0, fontWeight: FontWeight.bold)),
         axes: <RadialAxis>[

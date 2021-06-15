@@ -22,8 +22,6 @@ class DialEditor extends StatefulWidget {
 }
 
 class _DialEditorState extends State<DialEditor> {
-  TextEditingController _textFieldController = TextEditingController();
-
   @override
   Widget build(BuildContext context) {
     return Column(
