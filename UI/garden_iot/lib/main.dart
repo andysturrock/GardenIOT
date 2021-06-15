@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:garden_iot/dials_grid.dart';
-import 'package:garden_iot/temperature_dial.dart';
 import 'package:garden_iot/temperature_model.dart';
 import 'package:provider/provider.dart';
 

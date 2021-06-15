@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:garden_iot/dial_editor.dart';
+import 'package:garden_iot/dial_type_dropdown.dart';
 import 'package:garden_iot/temperature_dial.dart';
 import 'package:garden_iot/temperature_model.dart';
 import 'package:provider/provider.dart';
@@ -11,16 +12,15 @@ class DialsGrid extends StatefulWidget {
 
 class _DialsGridState extends State<DialsGrid> {
   final List<Widget> _dials = [];
-  TextEditingController _textFieldController = TextEditingController();
 
-  Future<Widget?> _displayTextInputDialog(BuildContext context) async {
-    String widgetName = "";
-    Widget? myThing = await showDialog(
+  Future<DialAttributes?> _displayDialEditorDialog(BuildContext context) async {
+    return await showDialog(
         context: context,
         builder: (BuildContext context) {
+          final dialEditor = DialEditor();
           return AlertDialog(
             title: Text('Add new sensor'),
-            content: DialEditor(),
+            content: dialEditor,
             actions: <Widget>[
               TextButton(
                 child: Text('CANCEL'),
@@ -31,33 +31,17 @@ class _DialsGridState extends State<DialsGrid> {
               TextButton(
                 child: Text('OK'),
                 onPressed: () {
-                  Navigator.pop(context, Text(widgetName));
+                  Navigator.pop(context, dialEditor.dialAttributes);
                 },
               ),
             ],
           );
         });
-    return myThing;
   }
 
   @override
   Widget build(BuildContext context) {
-    final temperatureDial0 = TemperatureDial(
-        temperatureModel: context.read<TemperatureModel>(),
-        sensorId: 0,
-        name: "External");
-    final temperatureDial1 = TemperatureDial(
-        temperatureModel: context.read<TemperatureModel>(),
-        sensorId: 1,
-        name: "Greenhouse");
-    final temperatureDial2 = TemperatureDial(
-        temperatureModel: context.read<TemperatureModel>(),
-        sensorId: 2,
-        name: "Shed");
     if (_dials.length == 0) {
-      _dials.add(temperatureDial0);
-      _dials.add(temperatureDial1);
-      _dials.add(temperatureDial2);
       final addNewSensor = Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
@@ -65,10 +49,19 @@ class _DialsGridState extends State<DialsGrid> {
             icon: const Icon(Icons.add_box),
             tooltip: 'Add new sensor',
             onPressed: () async {
-              Widget? myThing = await _displayTextInputDialog(context);
-              if (myThing != null) {
+              DialAttributes? dialAttributes =
+                  await _displayDialEditorDialog(context);
+              if (dialAttributes != null) {
                 setState(() {
-                  _dials.add(myThing);
+                  if (dialAttributes.dialType == DialType.temperature) {
+                    final newTempDial = TemperatureDial(
+                        temperatureModel: context.read<TemperatureModel>(),
+                        sensorId: dialAttributes.sensorId,
+                        name: dialAttributes.dialName);
+                    _dials.add(newTempDial);
+                  } else {
+                    //TODO new MoistureDial
+                  }
                 });
               } else {
                 print("The user pressed cancel or back");

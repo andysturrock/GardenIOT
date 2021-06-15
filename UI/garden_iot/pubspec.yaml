@@ -31,6 +31,7 @@ dependencies:
   syncfusion_flutter_gauges: ^19.1.65
   http: ^0.13.3
   provider: ^5.0.0
+  numberpicker: ^2.1.1
 
 dev_dependencies:
   flutter_test:

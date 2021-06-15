@@ -1,20 +1,26 @@
 import 'package:flutter/material.dart';
 
-class DialTypeDropdown extends StatefulWidget {
-  @override
-  _DialTypeDropdownState createState() => _DialTypeDropdownState();
-}
-
 enum DialType { temperature, moisture }
 
-class _DialTypeDropdownState extends State<DialTypeDropdown> {
-  DialType _dialType = DialType.temperature;
+class DialTypeDropdown extends StatefulWidget {
+  final DialType initialValue;
+  final ValueChanged<DialType>? onChanged;
 
-  DialType get dialType => _dialType;
+  DialTypeDropdown(
+      {required this.initialValue, ValueChanged<DialType>? this.onChanged}) {}
+
+  @override
+  _DialTypeDropdownState createState() => _DialTypeDropdownState(initialValue);
+}
+
+class _DialTypeDropdownState extends State<DialTypeDropdown> {
+  DialType _dialType;
+
+  _DialTypeDropdownState(this._dialType) {}
 
   @override
   Widget build(BuildContext context) {
-    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+    return Column(crossAxisAlignment: CrossAxisAlignment.center, children: [
       Text(
         "Sensor Type",
         textAlign: TextAlign.left,
@@ -30,9 +36,10 @@ class _DialTypeDropdownState extends State<DialTypeDropdown> {
               color: Colors.black, fontSize: 14, fontWeight: FontWeight.w500),
         ),
         onChanged: (DialType? newValue) {
-          setState(() {
-            _dialType = newValue!;
-          });
+          if (newValue != null) {
+            setState(() => _dialType = newValue);
+            widget.onChanged?.call(newValue);
+          }
         },
         isExpanded: true,
         items: <DialType>[DialType.temperature, DialType.moisture]
