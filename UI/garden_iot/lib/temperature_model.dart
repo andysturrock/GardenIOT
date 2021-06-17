@@ -72,14 +72,11 @@ class TemperatureModel with ChangeNotifier {
     for (var sensor_id in this._sensorIds) {
       uri += "sensor_id${sensor_id.toString()}&";
     }
-
-    print("uri = ${uri}");
     final response = await http.get(Uri.parse(uri));
 
     if (response.statusCode == 200) {
       _currentTemperatures =
           SensorIdToTemperatureReading.fromJson(jsonDecode(response.body));
-      print("_currentTemperatures = ${_currentTemperatures}");
       notifyListeners();
     } else {
       print("Failed to load temperature:\n ${response}");

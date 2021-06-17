@@ -9,10 +9,11 @@ class TemperatureDial extends StatefulWidget {
   final TemperatureModel temperatureModel;
 
   TemperatureDial({
+    Key? key,
     required this.temperatureModel,
     required this.dialName,
     required this.sensorId,
-  }) {}
+  }) : super(key: key) {}
 
   @override
   _TemperatureDialState createState() => _TemperatureDialState();
@@ -38,7 +39,6 @@ class _TemperatureDialState extends State<TemperatureDial> {
         .getCurrentTemperature(widget.sensorId);
     final temperature =
         (temperatureReading == null) ? 0.00 : temperatureReading.temperature;
-    print("build: temperature = ${temperature}");
     return SfRadialGauge(
         title: GaugeTitle(
             text: widget.dialName,

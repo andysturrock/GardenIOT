@@ -8,6 +8,8 @@ import 'package:provider/provider.dart';
 
 import 'new_dial_button.dart';
 
+typedef VoidFunction = void Function();
+
 class DialsGrid extends StatefulWidget {
   @override
   _DialsGridState createState() => _DialsGridState();
@@ -40,6 +42,19 @@ class _DialsGridState extends State<DialsGrid> {
     return gridView;
   }
 
+  void _removeDial(Key key) {
+    setState(() {
+      // O(n) linear search is a bit disgusting but there won't
+      // ever be too many items in the list so don't worry for now.
+      for (var index = 0; index < _dials.length; ++index) {
+        if (_dials[index].key == key) {
+          _dials.removeAt(index);
+          break;
+        }
+      }
+    });
+  }
+
   void _addNewDial(DialAttributes dialAttributes) {
     setState(() {
       if (dialAttributes.dialType == DialType.temperature) {
@@ -48,32 +63,12 @@ class _DialsGridState extends State<DialsGrid> {
           sensorId: dialAttributes.sensorId,
           dialName: dialAttributes.dialName,
         );
-        final newTileIndex = _dials.length;
+        final dialKey = UniqueKey();
         final newDialGridTile = DialGridTile(
-          index: _dials.length,
+          key: dialKey,
+          initialIndex: _dials.length,
           dial: newTemperatureDial,
-          onLongPress: () {
-            Future<dynamic> result = showMenu(
-                context: context,
-                items: <PopupMenuEntry>[
-                  PopupMenuItem(
-                    value: newTileIndex,
-                    child: Row(
-                      children: <Widget>[
-                        Icon(Icons.delete),
-                        Text("Delete"),
-                      ],
-                    ),
-                  )
-                ],
-                position: RelativeRect.fill);
-            result.then((value) {
-              if (value != null) {
-                print("removing dial at index ${value.toString()}");
-                _dials.removeAt(value);
-              }
-            });
-          },
+          onDeleteTile: (index) => _removeDial(dialKey),
         );
         _dials.add(newDialGridTile);
       } else {
