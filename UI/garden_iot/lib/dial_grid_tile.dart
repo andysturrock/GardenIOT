@@ -1,19 +1,25 @@
 import 'package:flutter/material.dart';
+import 'package:garden_iot/dial_editor.dart';
+import 'package:garden_iot/dial_type_dropdown.dart';
 
 class DialGridTile extends StatefulWidget {
   final int initialIndex;
   final Widget dial;
+  final DialAttributes dialAttributes;
   final void Function(int) onDeleteTile;
 
   DialGridTile(
       {Key? key,
       required this.initialIndex,
       required this.dial,
+      required this.dialAttributes,
       required void Function(int) this.onDeleteTile})
       : super(key: key) {}
 
   @override
   _DialGridTileState createState() => _DialGridTileState(initialIndex);
+
+  Map<String, dynamic> toJson() => dialAttributes.toJson();
 }
 
 class _DialGridTileState extends State<DialGridTile> {

@@ -11,6 +11,17 @@ class DialAttributes {
       {required this.dialName,
       required this.dialType,
       required this.sensorId}) {}
+
+  DialAttributes.fromJson(Map<String, dynamic> json)
+      : dialName = json["dialName"].toString(),
+        dialType = DialType.values[int.parse(json["dialType"])],
+        sensorId = int.parse(json["sensorId"]) {}
+
+  Map<String, dynamic> toJson() => {
+        'dialName': dialName,
+        'dialType': dialType.index,
+        'sensorId': sensorId,
+      };
 }
 
 class DialEditor extends StatefulWidget {
