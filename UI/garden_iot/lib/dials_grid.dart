@@ -52,14 +52,6 @@ class _DialsGridState extends State<DialsGrid> {
 
   Future<void> _saveToPersistentStorage(List<DialGridTile> dials) async {
     final localFile = File(await _localFilePath);
-    // var jsonString = "]\n";
-    // for (final dialGridTile in dials) {
-    //   final dialAttributesJson = dialGridTile.dialAttributes.toJson();
-    //   jsonString += jsonEncode(dialAttributesJson);
-    //   jsonString += ",\n";
-    // }
-    // jsonString += "]\n";
-    // await localFile.writeAsString(jsonString);
     var jsonString = jsonEncode(dials);
     await localFile.writeAsString(jsonString);
   }
