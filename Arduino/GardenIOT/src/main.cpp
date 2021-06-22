@@ -1,16 +1,15 @@
 #include <WiFiClientSecure.h>
 #include <U8g2lib.h>
-#include <heltec.h>
+#include "arduino_secrets.h"
 
 #define   FONT_ONE_HEIGHT               8                                   // font one height in pixels
 #define   FONT_TWO_HEIGHT               20                                  // font two height in pixels
 
 char      chBuffer[128];                                                    // general purpose character buffer
-char      chPassword[] =                  "__WIFIPASSWORD__";               // your network password
-char      chSSID[] =                      "__WIFISSID__";                   // your network SSID
-bool      bTimeReceived =                 false;                            // time has not been received
+char      chPassword[] =                  __WIFIPASSWORD__;                 // your network password
+char      chSSID[] =                      __WIFISSID__;                     // your network SSID
 U8G2_SSD1306_128X64_NONAME_F_HW_I2C       u8g2(U8G2_R0, 16, 15, 4);         // OLED graphics
-int       nWifiStatus =                   WL_IDLE_STATUS;                   // wifi status
+wl_status_t       wifiStatus =                   WL_IDLE_STATUS;                   // wifi status
 
 String hostname = "api.gardeniot.dev.goatsinlace.com";
 
@@ -44,11 +43,19 @@ void setup()
 
   // Connect to wifi.
 
+  Serial.print("SSID is ");
+  Serial.print(chSSID);
+  Serial.print(", password is ");
+  Serial.println(chPassword);
   Serial.print("GardenIOT: connecting to wifi...");
-  WiFi.begin(chSSID, chPassword);
+  wifiStatus = WiFi.begin(chSSID, chPassword);
+  Serial.print(", Wifi begin returned:");
+  Serial.println(wifiStatus);
   while (WiFi.status() != WL_CONNECTED)
   {
-    Serial.print(".");
+    // Serial.print(".");
+    Serial.print(", Wifi status is:");
+    Serial.println(WiFi.status());
     delay(500);
   }
 
@@ -65,6 +72,7 @@ void setup()
   // Display the title.
 
   sprintf(chBuffer, "%s", "WiFi Stats:");
+  Serial.println(chBuffer);
   u8g2.drawStr(64 - (u8g2.getStrWidth(chBuffer) / 2), 0, chBuffer);
 
   // Display the ip address assigned by the wifi router.
@@ -72,11 +80,13 @@ void setup()
   char  chIp[81];
   WiFi.localIP().toString().toCharArray(chIp, sizeof(chIp) - 1);
   sprintf(chBuffer, "IP  : %s", chIp);
+  Serial.println(chBuffer);
   u8g2.drawStr(0, FONT_ONE_HEIGHT * 2, chBuffer);
 
   // Display the ssid of the wifi router.
 
   sprintf(chBuffer, "SSID: %s", chSSID);
+  Serial.println(chBuffer);
   u8g2.drawStr(0, FONT_ONE_HEIGHT * 3, chBuffer);
 
   // Now send the display buffer to the OLED.
@@ -92,7 +102,9 @@ void get()
   u8g2.sendBuffer();
 
   WiFiClientSecure client;
-  Serial.println("\nStarting connection to server...");
+  Serial.print("\nStarting connection to ");
+  Serial.print(hostname.c_str());
+  Serial.println("...");
   if (!client.connect(hostname.c_str(), 443)) {
     Serial.println("Connection failed!");
     u8g2.clearBuffer();
