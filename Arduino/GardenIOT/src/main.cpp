@@ -9,9 +9,36 @@ char      chBuffer[128];                                                    // g
 char      chPassword[] =                  __WIFIPASSWORD__;                 // your network password
 char      chSSID[] =                      __WIFISSID__;                     // your network SSID
 U8G2_SSD1306_128X64_NONAME_F_HW_I2C       u8g2(U8G2_R0, 16, 15, 4);         // OLED graphics
-wl_status_t       wifiStatus =                   WL_IDLE_STATUS;                   // wifi status
+int       nWifiStatus =                   WL_IDLE_STATUS;                   // wifi status
+int32_t   connectionTimeout =             5000;                             // Timeout in making SSL connection.
 
 String hostname = "api.gardeniot.dev.goatsinlace.com";
+
+const char* amazon_root_ca = \
+"-----BEGIN CERTIFICATE-----\n" \
+"MIID7zCCAtegAwIBAgIBADANBgkqhkiG9w0BAQsFADCBmDELMAkGA1UEBhMCVVMx\n" \
+"EDAOBgNVBAgTB0FyaXpvbmExEzARBgNVBAcTClNjb3R0c2RhbGUxJTAjBgNVBAoT\n" \
+"HFN0YXJmaWVsZCBUZWNobm9sb2dpZXMsIEluYy4xOzA5BgNVBAMTMlN0YXJmaWVs\n" \
+"ZCBTZXJ2aWNlcyBSb290IENlcnRpZmljYXRlIEF1dGhvcml0eSAtIEcyMB4XDTA5\n" \
+"MDkwMTAwMDAwMFoXDTM3MTIzMTIzNTk1OVowgZgxCzAJBgNVBAYTAlVTMRAwDgYD\n" \
+"VQQIEwdBcml6b25hMRMwEQYDVQQHEwpTY290dHNkYWxlMSUwIwYDVQQKExxTdGFy\n" \
+"ZmllbGQgVGVjaG5vbG9naWVzLCBJbmMuMTswOQYDVQQDEzJTdGFyZmllbGQgU2Vy\n" \
+"dmljZXMgUm9vdCBDZXJ0aWZpY2F0ZSBBdXRob3JpdHkgLSBHMjCCASIwDQYJKoZI\n" \
+"hvcNAQEBBQADggEPADCCAQoCggEBANUMOsQq+U7i9b4Zl1+OiFOxHz/Lz58gE20p\n" \
+"OsgPfTz3a3Y4Y9k2YKibXlwAgLIvWX/2h/klQ4bnaRtSmpDhcePYLQ1Ob/bISdm2\n" \
+"8xpWriu2dBTrz/sm4xq6HZYuajtYlIlHVv8loJNwU4PahHQUw2eeBGg6345AWh1K\n" \
+"Ts9DkTvnVtYAcMtS7nt9rjrnvDH5RfbCYM8TWQIrgMw0R9+53pBlbQLPLJGmpufe\n" \
+"hRhJfGZOozptqbXuNC66DQO4M99H67FrjSXZm86B0UVGMpZwh94CDklDhbZsc7tk\n" \
+"6mFBrMnUVN+HL8cisibMn1lUaJ/8viovxFUcdUBgF4UCVTmLfwUCAwEAAaNCMEAw\n" \
+"DwYDVR0TAQH/BAUwAwEB/zAOBgNVHQ8BAf8EBAMCAQYwHQYDVR0OBBYEFJxfAN+q\n" \
+"AdcwKziIorhtSpzyEZGDMA0GCSqGSIb3DQEBCwUAA4IBAQBLNqaEd2ndOxmfZyMI\n" \
+"bw5hyf2E3F/YNoHN2BtBLZ9g3ccaaNnRbobhiCPPE95Dz+I0swSdHynVv/heyNXB\n" \
+"ve6SbzJ08pGCL72CQnqtKrcgfU28elUSwhXqvfdqlS5sdJ/PHLTyxQGjhdByPq1z\n" \
+"qwubdQxtRbeOlKyWN7Wg0I8VRw7j6IPdj/3vQQF3zCepYoUz8jcI73HPdwbeyBkd\n" \
+"iEDPfUYd/x7H4c7/I9vG+o1VTqkC50cRRj70/b17KSa7qWFiNyi2LSr2EIZkyXCn\n" \
+"0q23KXB56jzaYyWf/Wi3MOxw+3WKt21gZ7IeyLnp2KhvAotnDU0mV3HaIPzBSlCN\n" \
+"sSi6\n" \
+"-----END CERTIFICATE-----\n";
 
 void setup()
 {
@@ -36,61 +63,47 @@ void setup()
 
   u8g2.clearBuffer();
   sprintf(chBuffer, "%s", "Connecting to:");
+  Serial.println(chBuffer);
   u8g2.drawStr(64 - (u8g2.getStrWidth(chBuffer) / 2), 0, chBuffer);
   sprintf(chBuffer, "%s", chSSID);
+  Serial.println(chBuffer);
   u8g2.drawStr(64 - (u8g2.getStrWidth(chBuffer) / 2), 31 - (FONT_ONE_HEIGHT / 2), chBuffer);
   u8g2.sendBuffer();
 
-  // Connect to wifi.
+  // From https://github.com/espressif/arduino-esp32/issues/2025
+  WiFi.disconnect(true, true);
+  WiFi.mode(WIFI_OFF);
+  delay(1000);
+  WiFi.persistent(false);
 
-  Serial.print("SSID is ");
-  Serial.print(chSSID);
-  Serial.print(", password is ");
-  Serial.println(chPassword);
-  Serial.print("GardenIOT: connecting to wifi...");
-  wifiStatus = WiFi.begin(chSSID, chPassword);
-  Serial.print(", Wifi begin returned:");
-  Serial.println(wifiStatus);
+  // Connect to wifi.
+  WiFi.begin(chSSID, chPassword);
   while (WiFi.status() != WL_CONNECTED)
   {
-    // Serial.print(".");
-    Serial.print(", Wifi status is:");
-    Serial.println(WiFi.status());
+    Serial.print(".");
     delay(500);
   }
-
   Serial.println();
   sprintf(chBuffer, "WiFi connected to %s.", chSSID);
   Serial.println(chBuffer);
+  u8g2.drawStr(64 - (u8g2.getStrWidth(chBuffer) / 2), 0, chBuffer);
+  u8g2.sendBuffer();
 
   // Display connection stats.
-
-  // Clean the display buffer.
-
   u8g2.clearBuffer();
-
-  // Display the title.
-
   sprintf(chBuffer, "%s", "WiFi Stats:");
-  Serial.println(chBuffer);
   u8g2.drawStr(64 - (u8g2.getStrWidth(chBuffer) / 2), 0, chBuffer);
-
-  // Display the ip address assigned by the wifi router.
+  Serial.println(chBuffer);
 
   char  chIp[81];
   WiFi.localIP().toString().toCharArray(chIp, sizeof(chIp) - 1);
   sprintf(chBuffer, "IP  : %s", chIp);
-  Serial.println(chBuffer);
   u8g2.drawStr(0, FONT_ONE_HEIGHT * 2, chBuffer);
-
-  // Display the ssid of the wifi router.
+  Serial.println(chBuffer);
 
   sprintf(chBuffer, "SSID: %s", chSSID);
-  Serial.println(chBuffer);
   u8g2.drawStr(0, FONT_ONE_HEIGHT * 3, chBuffer);
-
-  // Now send the display buffer to the OLED.
-
+  Serial.println(chBuffer);
   u8g2.sendBuffer();
 }
 
@@ -102,10 +115,10 @@ void get()
   u8g2.sendBuffer();
 
   WiFiClientSecure client;
-  Serial.print("\nStarting connection to ");
-  Serial.print(hostname.c_str());
-  Serial.println("...");
-  if (!client.connect(hostname.c_str(), 443)) {
+  // client.setInsecure();
+  client.setCACert(amazon_root_ca);
+  Serial.println("\nStarting connection to server...");
+  if (!client.connect(hostname.c_str(), 443, connectionTimeout)) {
     Serial.println("Connection failed!");
     u8g2.clearBuffer();
     sprintf(chBuffer, "%s", "Connection Failed");
@@ -183,8 +196,10 @@ void post()
   u8g2.sendBuffer();
 
   WiFiClientSecure client;
+  // client.setInsecure();
+  client.setCACert(amazon_root_ca);
   Serial.println("\nStarting connection to server...");
-  if (!client.connect(hostname.c_str(), 443)) {
+  if (!client.connect(hostname.c_str(), 443, connectionTimeout)) {
     Serial.println("Connection failed!");
     u8g2.clearBuffer();
     sprintf(chBuffer, "%s", "Connection Failed");
@@ -271,7 +286,6 @@ void post()
 }
 
 void loop() {
-  post();
-
   delay(5000);
+  post();
 }
