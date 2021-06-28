@@ -21,13 +21,19 @@ async function lambdaHandler(event: any): Promise<any> {
         }
       };
       const data = await ddbClient.send(new QueryCommand(params));
-      const temperature = data.Items?.[0].value.N;
-      const timestamp = data.Items?.[0].timestamp.N;
-      returnStruct.push({
-        "sensor_id": sensorId,
-        "temperature": `${temperature}`,
-        "timestamp": `${timestamp}`
-      })
+      const items = data.Items;
+      if(items && items.length > 0 && items[0].value) {
+        if(items[0].value.N && items[0].timestamp.N) {
+          const temperature = items[0].value.N;
+          const timestamp = items[0].timestamp.N;
+          returnStruct.push({
+            "sensor_id": sensorId,
+            "temperature": `${temperature}`,
+            "timestamp": `${timestamp}`
+          })
+        }
+      }
+      
     }
 
     return {
@@ -37,6 +43,7 @@ async function lambdaHandler(event: any): Promise<any> {
   }
   catch (err) {
     console.error(`Error: ${err.stack}`);
+    console.error(`event: ${JSON.stringify(event)}`);
     return {
       statusCode: 500,
       body: "Error"
