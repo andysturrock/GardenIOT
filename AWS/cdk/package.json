@@ -11,12 +11,15 @@
     "test": "jest",
     "cdk": "cdk"
   },
+  "peerDependencies": {
+    "aws-cdk-lib": "^2.0.0-rc.1",
+    "constructs": "^10.0.0"
+  },
   "devDependencies": {
-    "@aws-cdk/assert": "^1.107.0",
-    "@aws-cdk/aws-dynamodb": "^1.107.0",
-    "@aws-cdk/aws-lambda": "^1.107.0",
-    "@aws-cdk/aws-route53-targets": "^1.107.0",
-    "@aws-cdk/core": "^1.107.0",
+    "aws-cdk-lib": "2.0.0-rc.1",
+    "@aws-cdk/assert": "^2.0.0-rc.1",
+    "constructs": "^10.0.0",
+    "typescript": "~3.9.0",
     "@types/jest": "^26.0.23",
     "@types/node": "10.17.27",
     "aws-cdk": "^1.107.0",
@@ -24,19 +27,7 @@
     "jest": "^26.4.2",
     "source-map-support": "^0.5.19",
     "ts-jest": "^26.5.4",
-    "ts-node": "^9.0.0",
-    "typescript": "~3.9.7"
+    "ts-node": "^9.0.0"
   },
-  "dependencies": {},
-  "otherstuff": {
-    "@aws-cdk/assert": "^1.98.0",
-    "@aws-cdk/aws-certificatemanager": "^1.98.0",
-    "@aws-cdk/aws-cloudfront": "^1.98.0",
-    "@aws-cdk/aws-cloudfront-origins": "^1.98.0",
-    "@aws-cdk/aws-iam": "^1.98.0",
-    "@aws-cdk/aws-route53": "^1.98.0",
-    "@aws-cdk/aws-route53-targets": "^1.98.0",
-    "@aws-cdk/core": "^1.98.0",
-    "@types/jest": "^26.0.21"
-  }
+  "dependencies": {}
 }

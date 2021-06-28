@@ -1,11 +1,12 @@
-import * as cdk from '@aws-cdk/core';
-import * as dynamodb from '@aws-cdk/aws-dynamodb';
+import { Construct } from 'constructs';
+import * as cdk  from 'aws-cdk-lib';
+import { aws_dynamodb as dynamodb } from 'aws-cdk-lib';
 
 export class DynamoDBStack extends cdk.Stack {
   public readonly temperatureHistoryTable: dynamodb.Table;
   public readonly lastSensorReadingTable: dynamodb.Table;
 
-  constructor(scope: cdk.Construct, id: string, props?: cdk.StackProps) {
+  constructor(scope: Construct, id: string, props?: cdk.StackProps) {
     super(scope, id, props);
 
     this.temperatureHistoryTable = new dynamodb.Table(this, 'TemperatureHistoryTable', {

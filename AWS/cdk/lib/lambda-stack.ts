@@ -1,15 +1,15 @@
-import * as cdk from '@aws-cdk/core';
-import * as targets from '@aws-cdk/aws-route53-targets';
-import * as lambda from "@aws-cdk/aws-lambda";
-import * as iam from "@aws-cdk/aws-iam";
-import * as route53 from '@aws-cdk/aws-route53';
-import * as acm from '@aws-cdk/aws-certificatemanager';
-import * as apigateway from "@aws-cdk/aws-apigateway";
-import * as dynamodb from '@aws-cdk/aws-dynamodb';
+import { Construct } from 'constructs';
+import * as cdk from 'aws-cdk-lib';
+import { aws_iam as iam } from 'aws-cdk-lib';
+import { aws_route53 as route53 } from 'aws-cdk-lib';
+import { aws_route53_targets as targets } from 'aws-cdk-lib';
+import { aws_lambda as lambda } from 'aws-cdk-lib';
+import { aws_certificatemanager as acm } from 'aws-cdk-lib';
+import { aws_apigateway as apigateway } from 'aws-cdk-lib';
 import { getEnv, LambdaStackProps } from './common';
 
 export class LambdaStack extends cdk.Stack {
-  constructor(scope: cdk.Construct, id: string, props: LambdaStackProps) {
+  constructor(scope: Construct, id: string, props: LambdaStackProps) {
     super(scope, id, props);
 
     const policyArn = getEnv('AWS_BOUNDARY_POLICY_ARN');
