@@ -1,9 +1,11 @@
 #include <WiFiClientSecure.h>
 #include <U8g2lib.h>
 #include "arduino_secrets.h"
+#include "temperature_reading.hpp"
+#include <u8g2_stream.hpp>
 
-#define   FONT_ONE_HEIGHT               8                                   // font one height in pixels
-#define   FONT_TWO_HEIGHT               20                                  // font two height in pixels
+// #define   FONT_ONE_HEIGHT               8                                   // font one height in pixels
+// #define   FONT_TWO_HEIGHT               20                                  // font two height in pixels
 
 char      chBuffer[128];                                                    // general purpose character buffer
 char      chPassword[] =                  __WIFIPASSWORD__;                 // your network password
@@ -12,8 +14,11 @@ U8G2_SSD1306_128X64_NONAME_F_HW_I2C       u8g2(U8G2_R0, 16, 15, 4);         // O
 int       nWifiStatus =                   WL_IDLE_STATUS;                   // wifi status
 int32_t   connectionTimeout =             5000;                             // Timeout in making SSL connection.
 
+U8G2Stream u8g2Stream(u8g2);
+
 String hostname = "api.gardeniot.dev.goatsinlace.com";
 
+// From https://www.amazontrust.com/repository/SFSRootCAG2.pem
 const char* amazon_root_ca = \
 "-----BEGIN CERTIFICATE-----\n" \
 "MIID7zCCAtegAwIBAgIBADANBgkqhkiG9w0BAQsFADCBmDELMAkGA1UEBhMCVVMx\n" \
@@ -50,25 +55,32 @@ void setup()
 
   // OLED graphics.
 
-  u8g2.begin();
-  u8g2.setFont(u8g2_font_6x10_tr);
-  u8g2.setFontRefHeightExtendedText();
-  u8g2.setDrawColor(1);
-  u8g2.setFontPosTop();
-  u8g2.setFontDirection(0);
+  // u8g2.begin();
+  // u8g2.setFont(u8g2_font_6x10_tr);
+  // u8g2.setFontRefHeightExtendedText();
+  // u8g2.setDrawColor(1);
+  // u8g2.setFontPosTop();
+  // u8g2.setFontDirection(0);
 
   // Wifi.
 
   // Display title.
 
-  u8g2.clearBuffer();
-  sprintf(chBuffer, "%s", "Connecting to:");
-  Serial.println(chBuffer);
-  u8g2.drawStr(64 - (u8g2.getStrWidth(chBuffer) / 2), 0, chBuffer);
-  sprintf(chBuffer, "%s", chSSID);
-  Serial.println(chBuffer);
-  u8g2.drawStr(64 - (u8g2.getStrWidth(chBuffer) / 2), 31 - (FONT_ONE_HEIGHT / 2), chBuffer);
-  u8g2.sendBuffer();
+  // u8g2.clearBuffer();
+  // sprintf(chBuffer, "%s", "Connecting to:");
+  // Serial.println(chBuffer);
+  // u8g2.drawStr(64 - (u8g2.getStrWidth(chBuffer) / 2), 0, chBuffer);
+  // sprintf(chBuffer, "%s", chSSID);
+  // Serial.println(chBuffer);
+  // u8g2.drawStr(64 - (u8g2.getStrWidth(chBuffer) / 2), 31 - (FONT_ONE_HEIGHT / 2), chBuffer);
+  // u8g2.sendBuffer();
+
+  u8g2Stream.init();
+  u8g2Stream.clear();
+  u8g2Stream.leftJustify();
+  u8g2Stream << "Connecting to:" << newline << rightJustify << chSSID;
+  u8g2Stream << newline << centreJustify << "Centre";
+  u8g2Stream << flush;
 
   // From https://github.com/espressif/arduino-esp32/issues/2025
   WiFi.disconnect(true, true);
@@ -84,35 +96,29 @@ void setup()
     delay(500);
   }
   Serial.println();
-  sprintf(chBuffer, "WiFi connected to %s.", chSSID);
-  Serial.println(chBuffer);
-  u8g2.drawStr(64 - (u8g2.getStrWidth(chBuffer) / 2), 0, chBuffer);
-  u8g2.sendBuffer();
+  u8g2Stream << "WiFi connected to " << chSSID << flush;
 
   // Display connection stats.
-  u8g2.clearBuffer();
-  sprintf(chBuffer, "%s", "WiFi Stats:");
-  u8g2.drawStr(64 - (u8g2.getStrWidth(chBuffer) / 2), 0, chBuffer);
-  Serial.println(chBuffer);
+  u8g2Stream << "WiFi Stats:";
 
-  char  chIp[81];
+  char chIp[81];
   WiFi.localIP().toString().toCharArray(chIp, sizeof(chIp) - 1);
   sprintf(chBuffer, "IP  : %s", chIp);
-  u8g2.drawStr(0, FONT_ONE_HEIGHT * 2, chBuffer);
+  // u8g2.drawStr(0, FONT_ONE_HEIGHT * 2, chBuffer);
   Serial.println(chBuffer);
 
   sprintf(chBuffer, "SSID: %s", chSSID);
-  u8g2.drawStr(0, FONT_ONE_HEIGHT * 3, chBuffer);
+  // u8g2.drawStr(0, FONT_ONE_HEIGHT * 3, chBuffer);
   Serial.println(chBuffer);
-  u8g2.sendBuffer();
+  // u8g2.sendBuffer();
 }
 
 void get()
 {
-  u8g2.clearBuffer();
+  // u8g2.clearBuffer();
   sprintf(chBuffer, "%s", "Connecting to server...");
-  u8g2.drawStr(64 - (u8g2.getStrWidth(chBuffer) / 2), 0, chBuffer);
-  u8g2.sendBuffer();
+  // u8g2.drawStr(64 - (u8g2.getStrWidth(chBuffer) / 2), 0, chBuffer);
+  // u8g2.sendBuffer();
 
   WiFiClientSecure client;
   // client.setInsecure();
@@ -120,17 +126,17 @@ void get()
   Serial.println("\nStarting connection to server...");
   if (!client.connect(hostname.c_str(), 443, connectionTimeout)) {
     Serial.println("Connection failed!");
-    u8g2.clearBuffer();
+    // u8g2.clearBuffer();
     sprintf(chBuffer, "%s", "Connection Failed");
-    u8g2.drawStr(64 - (u8g2.getStrWidth(chBuffer) / 2), 0, chBuffer);
-    u8g2.sendBuffer();
+    // u8g2.drawStr(64 - (u8g2.getStrWidth(chBuffer) / 2), 0, chBuffer);
+    // u8g2.sendBuffer();
   }
   else {
     Serial.println("Connected to server!");
-    u8g2.clearBuffer();
+    // u8g2.clearBuffer();
     sprintf(chBuffer, "%s", "Connection made!");
-    u8g2.drawStr(64 - (u8g2.getStrWidth(chBuffer) / 2), 0, chBuffer);
-    u8g2.sendBuffer();
+    // u8g2.drawStr(64 - (u8g2.getStrWidth(chBuffer) / 2), 0, chBuffer);
+    // u8g2.sendBuffer();
 
     String url = "/0_0_1/temperature?sensor_id0";
 
@@ -155,16 +161,16 @@ void get()
       String line = client.readStringUntil('\n');
       if (line == "\r") {
         Serial.println("headers received");
-        u8g2.clearBuffer();
+        // u8g2.clearBuffer();
         sprintf(chBuffer, "%s", "headers received");
-        u8g2.drawStr(64 - (u8g2.getStrWidth(chBuffer) / 2), 0, chBuffer);
-        u8g2.sendBuffer();
+        // u8g2.drawStr(64 - (u8g2.getStrWidth(chBuffer) / 2), 0, chBuffer);
+        // u8g2.sendBuffer();
         break;
       }
     }
     // if there are incoming bytes available
     // from the server, read them and print them:
-    u8g2.clearBuffer();
+    // u8g2.clearBuffer();
     String str;
     while (client.available()) {
       char c = client.read();
@@ -181,8 +187,8 @@ void get()
     const char* c_str = str.c_str();
     Serial.write(c_str);
     sprintf(chBuffer, "%s", c_str);
-    u8g2.drawStr(64 - (u8g2.getStrWidth(chBuffer) / 2), 0, chBuffer);
-    u8g2.sendBuffer();
+    // u8g2.drawStr(64 - (u8g2.getStrWidth(chBuffer) / 2), 0, chBuffer);
+    // u8g2.sendBuffer();
 
     client.stop();
   }
@@ -190,28 +196,30 @@ void get()
 
 void post()
 {
-  u8g2.clearBuffer();
+
+  TemperatureReading temperatureReading(1, 12.3);
+  // u8g2.clearBuffer();
   sprintf(chBuffer, "%s", "Connecting to server...");
-  u8g2.drawStr(64 - (u8g2.getStrWidth(chBuffer) / 2), 0, chBuffer);
-  u8g2.sendBuffer();
+  // u8g2.drawStr(64 - (u8g2.getStrWidth(chBuffer) / 2), 0, chBuffer);
+  // u8g2.sendBuffer();
 
   WiFiClientSecure client;
-  // client.setInsecure();
-  client.setCACert(amazon_root_ca);
+  client.setInsecure();
+  // client.setCACert(amazon_root_ca);
   Serial.println("\nStarting connection to server...");
   if (!client.connect(hostname.c_str(), 443, connectionTimeout)) {
     Serial.println("Connection failed!");
-    u8g2.clearBuffer();
+    // u8g2.clearBuffer();
     sprintf(chBuffer, "%s", "Connection Failed");
-    u8g2.drawStr(64 - (u8g2.getStrWidth(chBuffer) / 2), 0, chBuffer);
-    u8g2.sendBuffer();
+    // u8g2.drawStr(64 - (u8g2.getStrWidth(chBuffer) / 2), 0, chBuffer);
+    // u8g2.sendBuffer();
   }
   else {
     Serial.println("Connected to server!");
-    u8g2.clearBuffer();
+    // u8g2.clearBuffer();
     sprintf(chBuffer, "%s", "Connection made!");
-    u8g2.drawStr(64 - (u8g2.getStrWidth(chBuffer) / 2), 0, chBuffer);
-    u8g2.sendBuffer();
+    // u8g2.drawStr(64 - (u8g2.getStrWidth(chBuffer) / 2), 0, chBuffer);
+    // u8g2.sendBuffer();
 
     String url = "/0_0_1/temperature";
 
@@ -239,10 +247,10 @@ void post()
     while (client.available() == 0) {
       if (millis() - timeout > 10000) {
         Serial.println(">>> Client Timeout !");
-        u8g2.clearBuffer();
+        // u8g2.clearBuffer();
         sprintf(chBuffer, "%s", "Timeout");
-        u8g2.drawStr(64 - (u8g2.getStrWidth(chBuffer) / 2), 0, chBuffer);
-        u8g2.sendBuffer();
+        // u8g2.drawStr(64 - (u8g2.getStrWidth(chBuffer) / 2), 0, chBuffer);
+        // u8g2.sendBuffer();
         client.stop();
         return;
       }
@@ -252,16 +260,16 @@ void post()
       String line = client.readStringUntil('\n');
       if (line == "\r") {
         Serial.println("headers received");
-        u8g2.clearBuffer();
+        // u8g2.clearBuffer();
         sprintf(chBuffer, "%s", "headers received");
-        u8g2.drawStr(64 - (u8g2.getStrWidth(chBuffer) / 2), 0, chBuffer);
-        u8g2.sendBuffer();
+        // u8g2.drawStr(64 - (u8g2.getStrWidth(chBuffer) / 2), 0, chBuffer);
+        // u8g2.sendBuffer();
         break;
       }
     }
     // if there are incoming bytes available
     // from the server, read them and print them:
-    u8g2.clearBuffer();
+    // u8g2.clearBuffer();
     String str;
     while (client.available()) {
       char c = client.read();
@@ -278,8 +286,8 @@ void post()
     const char* c_str = str.c_str();
     Serial.write(c_str);
     sprintf(chBuffer, "%s", c_str);
-    u8g2.drawStr(64 - (u8g2.getStrWidth(chBuffer) / 2), 0, chBuffer);
-    u8g2.sendBuffer();
+    // u8g2.drawStr(64 - (u8g2.getStrWidth(chBuffer) / 2), 0, chBuffer);
+    // u8g2.sendBuffer();
 
     client.stop();
   }
@@ -287,5 +295,5 @@ void post()
 
 void loop() {
   delay(5000);
-  post();
+  // post();
 }
