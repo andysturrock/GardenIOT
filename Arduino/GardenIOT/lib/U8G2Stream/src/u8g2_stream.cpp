@@ -48,6 +48,11 @@ U8G2Stream& U8G2Stream::clear() {
   return *this;
 }
 
+U8G2Stream& U8G2Stream::operator<<(const String& str) {
+  lineBuffers.back().buffer += str.c_str();
+  return *this;
+}
+
 U8G2Stream& U8G2Stream::operator<<(const char* str) {
   lineBuffers.back().buffer += str;
   return *this;
