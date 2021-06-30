@@ -77,6 +77,8 @@ void setup()
   u8g2Stream << "IP: " << WiFi.localIP().toString() << newline;
   u8g2Stream << "SSID: " << chSSID;
   u8g2Stream << flush;
+
+  delay(5000);
 }
 
 void get()
@@ -130,7 +132,7 @@ void get()
       str.concat(c);
     }
     str.concat("\0");
-    u8g2Stream << str.c_str();
+    u8g2Stream << str.c_str() << flush;
 
     client.stop();
   }
@@ -138,7 +140,6 @@ void get()
 
 void post()
 {
-
   TemperatureReading temperatureReading(1, 12.3);
   
   u8g2Stream << "Connecting to server..." << flush;
@@ -147,7 +148,8 @@ void post()
   client.setInsecure();
   // client.setCACert(amazon_root_ca);
   u8g2Stream << "Starting connection to server..." << flush;
-  if (!client.connect(hostname.c_str(), 443, connectionTimeout)) {
+  // if (!client.connect(hostname.c_str(), 443, connectionTimeout)) {
+  if (!client.connect(hostname.c_str(), 443)) {
     u8g2Stream << "Connection Failed" << flush;
   }
   else {
@@ -163,7 +165,6 @@ void post()
     data += "{\"sensor_id\": 2, \"temperature\": \"34.99\"}";
     data += "]";
 
-    // This will send the request to the server
     String http("POST " + url + " HTTP/1.1\n");
     http += "Host: " + hostname + "\n";
     http += "Connection: close\n";
@@ -183,15 +184,17 @@ void post()
       }
     }
 
+    // Read the headers returned.
     while (client.connected()) {
       String line = client.readStringUntil('\n');
       if (line == "\r") {
         u8g2Stream << "Headers received" << flush;
+        Serial.println(line);
         break;
       }
     }
-    // If there are incoming bytes available
-    // from the server, read them and print them:
+
+    // Read the body returned
     String str;
     while (client.available()) {
       char c = client.read();
@@ -202,13 +205,13 @@ void post()
       str.concat(c);
     }
     str.concat("\0");
-    u8g2Stream << str.c_str();
+    u8g2Stream << str.c_str() << flush;
 
     client.stop();
   }
 }
 
 void loop() {
-  delay(5000);
   post();
+  delay(5000);
 }
