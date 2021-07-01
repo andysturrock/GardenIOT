@@ -141,15 +141,24 @@ void get()
 void post()
 {
   TemperatureReading temperatureReading(1, 12.3);
-  
-  u8g2Stream << "Connecting to server..." << flush;
 
   WiFiClientSecure client;
-  client.setInsecure();
-  // client.setCACert(amazon_root_ca);
-  u8g2Stream << "Starting connection to server..." << flush;
-  // if (!client.connect(hostname.c_str(), 443, connectionTimeout)) {
-  if (!client.connect(hostname.c_str(), 443)) {
+  // client.setInsecure();
+  client.setCACert(amazon_root_ca);
+
+  // We do the DNS lookup here really for debugging and display purposes.
+  IPAddress srv((uint32_t)0);
+  if(!WiFiGenericClass::hostByName(hostname.c_str(), srv)) {
+    u8g2Stream << "Cannot resolve " << hostname << " to IP Address" << flush;
+    return;
+  }
+  u8g2Stream << "Connecting to " << hostname << "..." << newline;
+  u8g2Stream << srv.toString() << flush;
+
+  // Now we have the IP address use that rather than hostname.
+  // The hostname overload of this call does the same DNS lookup internally,
+  // so that would be a waste of time.
+  if (!client.connect(srv, 443, connectionTimeout)) {
     u8g2Stream << "Connection Failed" << flush;
   }
   else {
@@ -187,9 +196,10 @@ void post()
     // Read the headers returned.
     while (client.connected()) {
       String line = client.readStringUntil('\n');
+      Serial.print("line = ");
+      Serial.println(line);
       if (line == "\r") {
         u8g2Stream << "Headers received" << flush;
-        Serial.println(line);
         break;
       }
     }
