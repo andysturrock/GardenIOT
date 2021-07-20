@@ -3,6 +3,8 @@
 #include "arduino_secrets.h"
 #include "temperature_reading.hpp"
 #include <u8g2_stream.hpp>
+#include <rest_client.hpp>
+#include <string>
 
 char      chBuffer[128];                                                    // general purpose character buffer
 char      chPassword[] =                  __WIFIPASSWORD__;                 // your network password
@@ -13,7 +15,7 @@ int32_t   connectionTimeout =             5000;                             // T
 
 U8G2Stream u8g2Stream(u8g2);
 
-String hostname = "api.gardeniot.dev.goatsinlace.com";
+std::string hostname = "api.gardeniot.dev.goatsinlace.com";
 
 // From https://www.amazontrust.com/repository/SFSRootCAG2.pem
 const char* amazon_root_ca = \
@@ -81,6 +83,7 @@ void setup()
   delay(5000);
 }
 
+/*
 void get()
 {
   u8g2Stream << "Connecting to server..." << flush;
@@ -137,88 +140,21 @@ void get()
     client.stop();
   }
 }
+*/
 
 void post()
 {
   TemperatureReading temperatureReading(1, 12.3);
 
   WiFiClientSecure client;
-  // client.setInsecure();
-  client.setCACert(amazon_root_ca);
+  client.setInsecure();
+  // client.setCACert(amazon_root_ca);
 
-  // We do the DNS lookup here really for debugging and display purposes.
-  IPAddress srv((uint32_t)0);
-  if(!WiFiGenericClass::hostByName(hostname.c_str(), srv)) {
-    u8g2Stream << "Cannot resolve " << hostname << " to IP Address" << flush;
-    return;
-  }
-  u8g2Stream << "Connecting to " << hostname << "..." << newline;
-  u8g2Stream << srv.toString() << flush;
+  RestClient restClient(u8g2Stream, client, hostname, connectionTimeout);
+  std::string body;
+  restClient.post("/0_0_1/temperature", body);
 
-  // Now we have the IP address use that rather than hostname.
-  // The hostname overload of this call does the same DNS lookup internally,
-  // so that would be a waste of time.
-  if (!client.connect(srv, 443, connectionTimeout)) {
-    u8g2Stream << "Connection Failed" << flush;
-  }
-  else {
-    u8g2Stream << "Connection made!" << newline;
-
-    String url = "/0_0_1/temperature";
-
-    u8g2Stream << "POST" << newline << url << flush;
-
-    String data("[");
-    data += "{\"sensor_id\": 0, \"temperature\": \"12.99\"},";
-    data += "{\"sensor_id\": 1, \"temperature\": \"23.99\"},";
-    data += "{\"sensor_id\": 2, \"temperature\": \"34.99\"}";
-    data += "]";
-
-    String http("POST " + url + " HTTP/1.1\n");
-    http += "Host: " + hostname + "\n";
-    http += "Connection: close\n";
-    http += "Content-Length: ";
-    http.concat(data.length());
-    http += "\n\n";
-    http += data;
-    http += "\n";
-    client.print(http);
-    http += "\n\n";
-    unsigned long timeout = millis();
-    while (client.available() == 0) {
-      if (millis() - timeout > 10000) {
-        u8g2Stream << "Client Timeout!" << flush;
-        client.stop();
-        return;
-      }
-    }
-
-    // Read the headers returned.
-    while (client.connected()) {
-      String line = client.readStringUntil('\n');
-      Serial.print("line = ");
-      Serial.println(line);
-      if (line == "\r") {
-        u8g2Stream << "Headers received" << flush;
-        break;
-      }
-    }
-
-    // Read the body returned
-    String str;
-    while (client.available()) {
-      char c = client.read();
-      // At end of response we seem to get a 255 so skip that.
-      if(c == 255) {
-        continue;
-      }
-      str.concat(c);
-    }
-    str.concat("\0");
-    u8g2Stream << str.c_str() << flush;
-
-    client.stop();
-  }
+  u8g2Stream << "body: " << newline << body << flush;
 }
 
 void loop() {

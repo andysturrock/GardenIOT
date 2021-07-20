@@ -33,6 +33,7 @@ public:
   U8G2Stream& operator<<(const char*);
   U8G2Stream& operator<<(int);
   U8G2Stream& operator<<(const String&);
+  U8G2Stream& operator<<(const std::string&);
   U8G2Stream& operator<<(U8G2Stream& (*__pf)(U8G2Stream&));
 
 private:
