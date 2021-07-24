@@ -11,7 +11,7 @@ char      chPassword[] =                  __WIFIPASSWORD__;                 // y
 char      chSSID[] =                      __WIFISSID__;                     // your network SSID
 U8G2_SSD1306_128X64_NONAME_F_HW_I2C       u8g2(U8G2_R0, 16, 15, 4);         // OLED graphics
 int       nWifiStatus =                   WL_IDLE_STATUS;                   // wifi status
-int32_t   connectionTimeout =             5000;                             // Timeout in making SSL connection.
+int32_t   connectionTimeout =             10000;                             // Timeout in making SSL connection.
 
 U8G2Stream u8g2Stream(u8g2);
 
@@ -142,7 +142,7 @@ void get()
 }
 */
 
-void post()
+void loop()
 {
   TemperatureReading temperatureReading(1, 12.3);
 
@@ -155,9 +155,6 @@ void post()
   restClient.post("/0_0_1/temperature", body);
 
   u8g2Stream << "body: " << newline << body << flush;
-}
 
-void loop() {
-  post();
   delay(5000);
 }
