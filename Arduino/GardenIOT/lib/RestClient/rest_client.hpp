@@ -12,7 +12,7 @@ public:
         const std::string& hostname,        // DNS hostname of far end
         int32_t connectionTimeout = 5000);  // Timeout in ms
 
-    bool post(const std::string& URL, std::string& returnBody);
+    bool post(const std::string& URL, const std::string& data, std::string& returnBody);
 
 private:
     U8G2Stream& u8g2Stream;

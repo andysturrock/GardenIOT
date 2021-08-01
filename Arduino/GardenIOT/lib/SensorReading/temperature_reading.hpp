@@ -14,8 +14,6 @@ public:
   {}
 
   std::string toJson() const;
-
-  void fromJson(const std::string& json);
   
   int getSensorId() const;
   double getTemperature() const;

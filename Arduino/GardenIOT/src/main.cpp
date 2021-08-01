@@ -83,65 +83,6 @@ void setup()
   delay(5000);
 }
 
-/*
-void get()
-{
-  u8g2Stream << "Connecting to server..." << flush;
-
-  WiFiClientSecure client;
-  // client.setInsecure();
-  client.setCACert(amazon_root_ca);
-  if (!client.connect(hostname.c_str(), 443, connectionTimeout)) {
-    u8g2Stream << "Connection failed!";
-  }
-  else {
-    u8g2Stream <<  "Connection made!" << newline;
-
-    String url = "/0_0_1/temperature?sensor_id0";
-
-    u8g2Stream << "GET" << newline << url << flush;
-
-    // This will send the request to the server
-    String http("GET " + url + " HTTP/1.1\n");
-    http += "Host: " + hostname + "\n";
-    http += "Connection: close\n\n";
-    client.print(http);
-    unsigned long timeout = millis();
-    while (client.available() == 0) {
-      if (millis() - timeout > 5000) {
-        u8g2Stream<< "Client Timeout!" << flush;
-        client.stop();
-        return;
-      }
-    }
-
-    while (client.connected()) {
-      String line = client.readStringUntil('\n');
-      if (line == "\r") {
-        u8g2Stream << "Headers received" << flush;
-        break;
-      }
-    }
-    // if there are incoming bytes available
-    // from the server, read them and print them:
-    // u8g2.clearBuffer();
-    String str;
-    while (client.available()) {
-      char c = client.read();
-      // At end of response we seem to get a 255 so skip that.
-      if(c == 255) {
-        continue;
-      }
-      str.concat(c);
-    }
-    str.concat("\0");
-    u8g2Stream << str.c_str() << flush;
-
-    client.stop();
-  }
-}
-*/
-
 void loop()
 {
   TemperatureReading temperatureReading(1, 12.3);
@@ -151,10 +92,15 @@ void loop()
   // client.setCACert(amazon_root_ca);
 
   RestClient restClient(u8g2Stream, client, hostname, connectionTimeout);
-  std::string body;
-  restClient.post("/0_0_1/temperature", body);
+  std::string data("[");
+  data += temperatureReading.toJson();
+  data += "]";
 
-  u8g2Stream << "body: " << newline << body << flush;
+  std::string returnBody;
+
+  restClient.post("/0_0_1/temperature", data, returnBody);
+
+  u8g2Stream << "returnBody: " << newline << returnBody << flush;
 
   delay(5000);
 }

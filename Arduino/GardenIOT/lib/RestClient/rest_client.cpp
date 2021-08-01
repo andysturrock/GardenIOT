@@ -11,7 +11,7 @@ RestClient::RestClient(U8G2Stream& u8g2Stream,
 {
 }
 
-bool RestClient::post(const std::string& URL, std::string& returnBody) {
+bool RestClient::post(const std::string& URL, const std::string& data, std::string& returnBody) {
   // We do the DNS lookup here really for debugging and display purposes.
   IPAddress srv((uint32_t)0);
   if(!WiFiGenericClass::hostByName(hostname.c_str(), srv)) {
@@ -31,12 +31,6 @@ bool RestClient::post(const std::string& URL, std::string& returnBody) {
     u8g2Stream << "Connection made!" << newline;
 
     u8g2Stream << "POST" << newline << URL << flush;
-
-    String data("[");
-    data += "{\"sensor_id\": 0, \"temperature\": \"12.99\"},";
-    data += "{\"sensor_id\": 1, \"temperature\": \"23.99\"},";
-    data += "{\"sensor_id\": 2, \"temperature\": \"34.99\"}";
-    data += "]";
 
     std::ostringstream http;
     http << "POST " << URL << " HTTP/1.1\n"
