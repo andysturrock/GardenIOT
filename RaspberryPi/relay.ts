@@ -9,9 +9,25 @@ export class Relay {
   static readonly RELAY4 : RelayId = 29;
 
   readonly _relayId;
+  readonly _name : string;
 
   constructor(relayId : RelayId) {
     this._relayId = relayId;
+    this._name = "undefined";
+    switch(relayId) {
+      case Relay.RELAY1:
+        this._name = "RELAY1";
+        break;
+      case Relay.RELAY2:
+        this._name = "RELAY2";
+        break;
+      case Relay.RELAY3:
+        this._name = "RELAY3";
+        break;
+      case Relay.RELAY4:
+        this._name = "RELAY4";
+        break;
+    }
   }  
 
   async setup() {
@@ -24,5 +40,13 @@ export class Relay {
 
   async off() {
     await gpio.write(this._relayId, false);
+  }
+
+  id() {
+    return this._relayId;
+  }
+
+  name() {
+    return this._name;
   }
 }

@@ -5,6 +5,7 @@
   "main": "index.js",
   "dependencies": {
     "@types/rpi-gpio": "^2.1.1",
+    "cron": "^2.0.0",
     "rpi-gpio": "^2.1.7",
     "source-map-support": "^0.5.21",
     "typescript": "^4.6.4"
