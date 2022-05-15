@@ -14,7 +14,6 @@ const caFile = process.env.CAFILE;
 const config_builder = iot.AwsIotMqttConnectionConfigBuilder.new_mtls_builder_from_path(certFile, keyFile);
 config_builder.with_certificate_authority_from_path(undefined, caFile);
 config_builder.with_clean_session(false);
-// config_builder.with_client_id("test-" + Math.floor(Math.random() * 100000000));
 const clientId = process.env.CLIENTID;
 config_builder.with_client_id(clientId);
 const endpoint = process.env.ENDPOINT;
@@ -83,7 +82,7 @@ async function relayOff(relay: Relay) {
     sequence: sequence++,
   };
   const json = JSON.stringify(msg);
-  const res = await connection.publish('test/topic', json, mqtt.QoS.AtLeastOnce);
+  const res = await connection.publish(topic, json, mqtt.QoS.AtLeastOnce);
   console.log(`res = ${JSON.stringify(res)}`);
 }
 
