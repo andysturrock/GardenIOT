@@ -1,4 +1,6 @@
-import * as cdk from '@aws-cdk/core';
+import { Construct } from 'constructs';
+import * as cdk from 'aws-cdk-lib';
+import { LambdaStackProps } from './common';
 export declare class LambdaStack extends cdk.Stack {
-    constructor(scope: cdk.Construct, id: string, props?: cdk.StackProps);
+    constructor(scope: Construct, id: string, props: LambdaStackProps);
 }

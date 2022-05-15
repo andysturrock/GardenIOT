@@ -1,11 +1,16 @@
 import { expect as expectCDK, matchTemplate, MatchStyle } from '@aws-cdk/assert';
-import * as cdk from '@aws-cdk/core';
-import * as Cdk from '../lib/lambda-stack';
+import * as cdk  from 'aws-cdk-lib';
+import { LambdaStack } from '../lib/lambda-stack';
+import { DynamoDBStack } from '../lib/dynamodb-stack';
 
 test('Empty Stack', () => {
     const app = new cdk.App();
     // WHEN
-    const stack = new Cdk.LambdaStack(app, 'MyTestStack');
+    const dynamoDBStack = new DynamoDBStack(app, 'DynamoDBStack');
+    const stack = new LambdaStack(app, 'MyTestStack', {
+      temperatureHistoryTable: dynamoDBStack.temperatureHistoryTable,
+      lastSensorReadingTable: dynamoDBStack.lastSensorReadingTable
+    });
     // THEN
     expectCDK(stack).to(matchTemplate({
       "Resources": {}
