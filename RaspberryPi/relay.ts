@@ -8,8 +8,8 @@ export class Relay {
   static readonly RELAY3 : RelayId = 31;
   static readonly RELAY4 : RelayId = 29;
 
-  readonly _relayId;
-  readonly _name : string;
+  private readonly _relayId;
+  private  readonly _name : string;
 
   constructor(relayId : RelayId) {
     this._relayId = relayId;
@@ -42,11 +42,11 @@ export class Relay {
     await gpio.write(this._relayId, false);
   }
 
-  id() {
+  get id() {
     return this._relayId;
   }
 
-  name() {
+  get name() {
     return this._name;
   }
 }

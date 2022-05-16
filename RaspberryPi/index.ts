@@ -63,12 +63,12 @@ async function sleep(millis : number) {
 
 async function relayOn(relay: Relay) {
   relay.on();
-  await statusMessage(`Relay ${relay.name()} (pin ${relay.id()}) on.`);
+  await statusMessage(`Relay ${relay.name} (pin ${relay.id}) on.`);
 }
 
 async function relayOff(relay: Relay) {
   relay.off();
-  await statusMessage(`Relay ${relay.name()} (pin ${relay.id()}) off.`);
+  await statusMessage(`Relay ${relay.name} (pin ${relay.id}) off.`);
 }
 
 async function main() {
