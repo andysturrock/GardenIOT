@@ -94,8 +94,7 @@ async function main() {
 
   await connection.connect();
 
-  const message = `GardenIOT starting up...`;
-  
+  await statusMessage(`GardenIOT starting up...`);
 }
 
 main();
