@@ -32,17 +32,7 @@ const relay3 = new Relay(Relay.RELAY3);
 const relay4 = new Relay(Relay.RELAY4);
 
 let sequence = 1;
-
-
-// Turn off all the relays if we are being killed by SIGINT
-process.on('SIGINT', async () => {
-  await relay1.off();
-  await relay2.off();
-  await relay3.off();
-  await relay4.off();
-  console.log('Caught SIGINT, turned relays off and disconnecting from AWS.');
-  const message = `GardenIOT going down...`;
-  console.log(message);
+async function statusMessage(message: string) {
   const msg = {
     message: message,
     sequence: sequence++,
@@ -50,6 +40,17 @@ process.on('SIGINT', async () => {
   const json = JSON.stringify(msg);
   const res = await connection.publish(topic, json, mqtt.QoS.AtLeastOnce);
   console.log(`res = ${JSON.stringify(res)}`);
+}
+
+
+// Turn off all the relays if we are being killed by SIGINT
+process.on('SIGINT', async () => {
+  await relayOff(relay1);
+  await relayOff(relay2);
+  await relayOff(relay3);
+  await relayOff(relay4);
+  
+  await statusMessage('Caught SIGINT, turned relays off and disconnecting from AWS.');
   await connection.disconnect();
   // Shouldn't be necessary, but just in case, pause to give relays time to switch off.
   await sleep(500);
@@ -62,28 +63,12 @@ async function sleep(millis : number) {
 
 async function relayOn(relay: Relay) {
   relay.on();
-  const message = `Turning on relay ${relay.name()} (pin ${relay.id()})...`;
-  console.log(message);
-  const msg = {
-    message: message,
-    sequence: sequence++,
-  };
-  const json = JSON.stringify(msg);
-  const res = await connection.publish(topic, json, mqtt.QoS.AtLeastOnce);
-  console.log(`res = ${JSON.stringify(res)}`);
+  await statusMessage(`Relay ${relay.name()} (pin ${relay.id()}) on.`);
 }
 
 async function relayOff(relay: Relay) {
   relay.off();
-  const message = `Turning off relay ${relay.name()} (pin ${relay.id()})...`;
-  console.log(message);
-  const msg = {
-    message: message,
-    sequence: sequence++,
-  };
-  const json = JSON.stringify(msg);
-  const res = await connection.publish(topic, json, mqtt.QoS.AtLeastOnce);
-  console.log(`res = ${JSON.stringify(res)}`);
+  await statusMessage(`Relay ${relay.name()} (pin ${relay.id()}) off.`);
 }
 
 async function main() {
@@ -108,6 +93,9 @@ async function main() {
   offJob.start();
 
   await connection.connect();
+
+  const message = `GardenIOT starting up...`;
+  
 }
 
 main();
