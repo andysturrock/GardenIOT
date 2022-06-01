@@ -4,13 +4,16 @@
   "description": "Raspberry Pi parts of GardenIOT project",
   "main": "index.js",
   "dependencies": {
+    "@types/node-schedule": "^2.1.0",
     "@types/rpi-gpio": "^2.1.1",
     "aws-crt": "^1.12.2",
     "aws-iot-device-sdk-v2": "^1.8.1",
     "cron": "^2.0.0",
     "dotenv": "^16.0.1",
+    "node-schedule": "^2.1.0",
     "rpi-gpio": "^2.1.7",
     "source-map-support": "^0.5.21",
+    "tslog": "^3.3.3",
     "typescript": "^4.6.4"
   },
   "devDependencies": {
