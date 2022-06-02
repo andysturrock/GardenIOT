@@ -1,3 +1,5 @@
+import mqttLogger from './mqtt-logger';
+
 const gpio = require('rpi-gpio').promise;
 
 type RelayId = 35 | 33 | 31 | 29;
@@ -42,10 +44,12 @@ class Relay {
 
   async on() {
     await gpio.write(this._id, true);
+    await mqttLogger.info(`Relay ${this._name} (pin ${this._id}) on.`);
   }
 
   async off() {
     await gpio.write(this._id, false);
+    await mqttLogger.info(`Relay ${this._name} (pin ${this._id}) off.`);
   }
 
   get id() {

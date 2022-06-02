@@ -6,14 +6,14 @@ import AWSConnection from './aws-connection';
 class MQTTLogger {
   private sequence = 1;
 
-  private connection;
+  private connection: AWSConnection;
 
   private topic;
 
   private logger;
 
-  constructor(connection: AWSConnection) {
-    this.connection = connection;
+  constructor() {
+    this.connection = new AWSConnection();
     this.logger = new TSLogger();
 
     try {
@@ -22,6 +22,10 @@ class MQTTLogger {
       this.logger.error(error);
       throw error;
     }
+  }
+
+  async init() {
+    await this.connection.connect();
   }
 
   private async sendMessage(message: string) {
@@ -70,4 +74,6 @@ class MQTTLogger {
   }
 }
 
-export default MQTTLogger;
+const mqttLogger = new MQTTLogger();
+
+export default mqttLogger;
