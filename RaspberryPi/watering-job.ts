@@ -1,23 +1,26 @@
 import schedule from 'node-schedule';
 
-type WateringJobState = "WAITING" | "RUNNING";
+type WateringJobState = 'WAITING' | 'RUNNING';
 
-export class WateringJob {
-  static readonly WAITING : WateringJobState = "WAITING";
-  static readonly RUNNING : WateringJobState = "RUNNING";
+class WateringJob {
+  static readonly WAITING : WateringJobState = 'WAITING';
+
+  static readonly RUNNING : WateringJobState = 'RUNNING';
 
   private readonly _duration;
-  private readonly _state : WateringJobState;
 
-  private readonly _rule;
-  private readonly _job;
+  private _state : WateringJobState;
+
+  private readonly rule;
+
+  private readonly job;
 
   constructor(duration: number) {
     this._duration = duration;
     this._state = WateringJob.WAITING;
 
-    this._rule = new schedule.RecurrenceRule();
-    this._job = schedule.scheduleJob(this._rule, this._startWatering);
+    this.rule = new schedule.RecurrenceRule();
+    this.job = schedule.scheduleJob(this.rule, this.startWatering);
   }
 
   get duration() {
@@ -29,10 +32,12 @@ export class WateringJob {
   }
 
   cancel() {
-    return this._job.cancel();
+    return this.job.cancel();
   }
 
-  private _startWatering() {
-    
+  private startWatering(): void {
+    this._state = WateringJob.RUNNING;
   }
 }
+
+export default WateringJob;

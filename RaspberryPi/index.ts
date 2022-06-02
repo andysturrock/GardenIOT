@@ -1,17 +1,17 @@
-import { AWSConnection } from './aws-connection';
+import AWSConnection from './aws-connection';
 
-import { Logger } from './logger';
+import MQTTLogger from './mqtt-logger';
 
-import { Relay } from './relay';
+import Relay from './relay';
 
 require('source-map-support').install();
 const { CronJob } = require('cron');
 
 const connection = new AWSConnection();
-const logger = new Logger(connection);
+const logger = new MQTTLogger(connection);
 
 async function sleep(millis : number) {
-  return new Promise((resolve) => setTimeout(resolve, millis));
+  return new Promise((resolve) => { setTimeout(resolve, millis); });
 }
 
 async function relayOn(relay: Relay) {
