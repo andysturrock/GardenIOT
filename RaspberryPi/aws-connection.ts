@@ -11,7 +11,10 @@ class AWSConnection {
     const clientId = getEnv('CLIENTID', false)!;
     const endpoint = getEnv('ENDPOINT', false)!;
 
-    const configBuilder = iot.AwsIotMqttConnectionConfigBuilder.new_mtls_builder_from_path(certFile, keyFile);
+    const configBuilder = iot.AwsIotMqttConnectionConfigBuilder.new_mtls_builder_from_path(
+      certFile,
+      keyFile,
+    );
     configBuilder.with_certificate_authority_from_path(undefined, caFile);
     configBuilder.with_clean_session(false);
     configBuilder.with_client_id(clientId);
@@ -30,7 +33,12 @@ class AWSConnection {
     this.connection.disconnect();
   }
 
-  async publish(topic: string, payload: mqtt.Payload, qos: mqtt.QoS, retain?: boolean): Promise<mqtt.MqttRequest> {
+  async publish(
+    topic: string,
+    payload: mqtt.Payload,
+    qos: mqtt.QoS,
+    retain?: boolean,
+  ): Promise<mqtt.MqttRequest> {
     return this.connection.publish(topic, payload, qos, retain);
   }
 }

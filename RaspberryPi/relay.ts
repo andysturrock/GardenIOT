@@ -1,8 +1,8 @@
 import mqttLogger from './mqtt-logger';
+import { RelayId } from './relay-id';
+import SerializedRelay from './serialization/serialized-relay';
 
 const gpio = require('rpi-gpio').promise;
-
-type RelayId = 35 | 33 | 31 | 29;
 
 class Relay {
   static readonly RELAY1 : RelayId = 35;
@@ -58,6 +58,19 @@ class Relay {
 
   get name() {
     return this._name;
+  }
+
+  static toJSON(relay: Relay): SerializedRelay {
+    /* eslint no-underscore-dangle: ["error", { "allow": ["_id", "_name"] }] */
+    const json : SerializedRelay = {
+      _id: relay._id,
+    };
+    return json;
+  }
+
+  static fromJSON(json: SerializedRelay): Relay {
+    const relay = new Relay(json._id);
+    return relay;
   }
 }
 

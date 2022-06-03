@@ -1,5 +1,5 @@
 import schedule from 'node-schedule';
-import AWSConnection from './aws-connection';
+import 'reflect-metadata';
 
 import mqttLogger from './mqtt-logger';
 
@@ -8,8 +8,6 @@ import WateringJob from './watering-job';
 import WateringPlan from './watering-plan';
 
 require('source-map-support').install();
-
-const connection = new AWSConnection();
 
 async function sleep(millis : number) {
   return new Promise((resolve) => { setTimeout(resolve, millis); });
@@ -33,7 +31,6 @@ async function main() {
     await relay3.off();
     await relay4.off();
 
-    await connection.disconnect();
     // Shouldn't be necessary, but just in case, pause to give relays time to switch off.
     await sleep(500);
     process.exit();
@@ -44,6 +41,7 @@ async function main() {
   await relay3.setup();
   await relay4.setup();
 
+  // Test rule runs every minute for 10 seconds
   const rule = new schedule.RecurrenceRule();
   rule.minute = new schedule.Range(0, 59);
   const wateringJob = new WateringJob(rule, 10, [relay1, relay2]);

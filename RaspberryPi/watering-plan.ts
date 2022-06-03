@@ -1,9 +1,10 @@
 import fs from 'fs/promises';
 import path from 'node:path';
+import SerializedWateringPlan from './serialization/serialized-watering-plan';
 import WateringJob from './watering-job';
 
 class WateringPlan {
-  private jobs: WateringJob[] = [];
+  private _jobs: WateringJob[] = [];
 
   private readonly _name;
 
@@ -17,32 +18,44 @@ class WateringPlan {
   }
 
   async load() {
-    const jsJobs:string = await fs.readFile(this.filename, 'utf8');
-    this.jobs = JSON.parse(jsJobs);
+    const json:string = await fs.readFile(this.filename, 'utf8');
+    const other : WateringPlan = WateringPlan.fromJSON(json);
+    Object.assign(this, other);
   }
 
   async save() {
-    const json = this.jobsToJSON();
-    await fs.writeFile(this.filename, JSON.stringify(json), 'utf8');
+    const json = JSON.stringify(WateringPlan.toJSON(this), null, 4);
+    await fs.writeFile(this.filename, json, 'utf8');
   }
 
   add(wateringJob: WateringJob) {
-    this.jobs.push(wateringJob);
+    this._jobs.push(wateringJob);
   }
 
-  private jobsToJSON() {
-    const anyArray: any[] = [];
-    const json = {
-      jobs: anyArray,
+  get name() {
+    return this._name;
+  }
+
+  private get jobs() {
+    return this._jobs;
+  }
+
+  static fromJSON(json: string) {
+    const wateringPlan : WateringPlan = JSON.parse(json);
+    return wateringPlan;
+  }
+
+  /**
+   * Create custom JSON representation of the WateringPlan.
+   * @param {WateringPlan} wateringPlan plan to serialize
+   * @returns {SerializedWateringPlan} custom JSON representation that can be used by fromJSON
+   */
+  static toJSON(wateringPlan: WateringPlan): SerializedWateringPlan {
+    /* eslint no-underscore-dangle: ["error", { "allow": ["_jobs", "_name"] }] */
+    const json : SerializedWateringPlan = {
+      _name: wateringPlan._name,
+      _jobs: wateringPlan._jobs.map((job) => WateringJob.toJSON(job)),
     };
-    this.jobs.forEach((job) => {
-      const jobJSON = {
-        rule: job.rule,
-        duration: job.duration,
-        relays: job.relays,
-      };
-      json.jobs.push(jobJSON);
-    });
     return json;
   }
 }

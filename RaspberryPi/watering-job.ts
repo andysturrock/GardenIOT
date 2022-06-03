@@ -1,5 +1,7 @@
 import schedule from 'node-schedule';
 import Relay from './relay';
+import SerializedRecurrenceRule from './serialization/serialized-recurrence-rule';
+import SerializedWateringJob from './serialization/serialized-watering-job';
 
 type WateringJobState = 'WAITING' | 'RUNNING';
 
@@ -19,9 +21,9 @@ class WateringJob {
   private readonly _relays;
 
   /**
-   * Create a schedule job.
+   * Create a WateringJob.
    *
-   * @param rule     scheduling info from node-schedule
+   * @param rule     scheduling rule from node-schedule
    * @param duration duration in seconds
    * @param relays   relays to turn on and off
    */
@@ -64,6 +66,26 @@ class WateringJob {
   private stopWatering() {
     this._state = WateringJob.WAITING;
     this._relays.forEach((relay) => relay.off());
+  }
+
+  /**
+   * Create custom JSON representation of the WateringJob.
+   * @param {WateringJob} WateringJob job to serialize
+   * @returns custom JSON representation that can be used by fromJSON
+   */
+  static toJSON(wateringJob: WateringJob) {
+    /* eslint no-underscore-dangle:
+      ["error", { "allow": ["_rule", "_duration", "_relays", "_state"] }]
+    */
+    const serializedRecurrenceRule : SerializedRecurrenceRule = {
+      ...wateringJob._rule,
+    };
+    const json : SerializedWateringJob = {
+      _rule: serializedRecurrenceRule,
+      _duration: wateringJob._duration,
+      _relays: wateringJob._relays.map((relay) => Relay.toJSON(relay)),
+    };
+    return json;
   }
 }
 
