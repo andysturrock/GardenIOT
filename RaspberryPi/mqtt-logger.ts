@@ -1,19 +1,18 @@
 import { Logger as TSLogger } from 'tslog';
-import * as awscrt from 'aws-crt';
+import { mqtt } from 'aws-crt';
 import getEnv from './getenv';
 import AWSConnection from './aws-connection';
 
 class MQTTLogger {
   private sequence = 1;
 
-  private connection: AWSConnection;
+  private connection: AWSConnection | undefined;
 
   private topic;
 
   private logger;
 
   constructor() {
-    this.connection = new AWSConnection();
     this.logger = new TSLogger();
 
     try {
@@ -25,7 +24,12 @@ class MQTTLogger {
   }
 
   async init() {
+    this.connection = new AWSConnection();
     await this.connection.connect();
+  }
+
+  async dispose() {
+    await this.connection?.disconnect();
   }
 
   private async sendMessage(message: string) {
@@ -35,7 +39,7 @@ class MQTTLogger {
     };
     this.sequence += 1; // eslint complains about postfix ++
     const json = JSON.stringify(msg);
-    await this.connection.publish(this.topic, json, awscrt.mqtt.QoS.AtLeastOnce);
+    await this.connection?.publish(this.topic, json, mqtt.QoS.AtLeastOnce);
   }
 
   async silly(message: string) {

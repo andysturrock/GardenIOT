@@ -60,6 +60,11 @@ class Relay {
     return this._name;
   }
 
+  /**
+   * Create custom JSON representation of the Relay.
+   * @param {Relay} relay the Relay to serialize
+   * @returns custom JSON representation that can be used by fromJSON
+   */
   static toJSON(relay: Relay): SerializedRelay {
     /* eslint no-underscore-dangle: ["error", { "allow": ["_id", "_name"] }] */
     const json : SerializedRelay = {
@@ -68,6 +73,11 @@ class Relay {
     return json;
   }
 
+  /**
+   * Create a Relay instance from the SerializedRelay.
+   * @param {SerializedRelay} json SerializedRelay to deserialize
+   * @returns new Relay instance
+   */
   static fromJSON(json: SerializedRelay): Relay {
     const relay = new Relay(json._id);
     return relay;

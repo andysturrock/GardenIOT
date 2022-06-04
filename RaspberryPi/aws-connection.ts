@@ -2,7 +2,9 @@ import { iot, mqtt } from 'aws-crt';
 import getEnv from './getenv';
 
 class AWSConnection {
-  private readonly connection;
+  private connection : mqtt.MqttClientConnection | undefined;
+
+  private readonly _config: mqtt.MqttConnectionConfig;
 
   constructor() {
     const certFile = getEnv('CERTFILE', false)!;
@@ -19,18 +21,17 @@ class AWSConnection {
     configBuilder.with_clean_session(false);
     configBuilder.with_client_id(clientId);
     configBuilder.with_endpoint(endpoint);
-    const config = configBuilder.build();
-
-    const client = new mqtt.MqttClient();
-    this.connection = client.new_connection(config);
+    this._config = configBuilder.build();
   }
 
   async connect() {
+    const client = new mqtt.MqttClient();
+    this.connection = client.new_connection(this._config);
     this.connection.connect();
   }
 
   async disconnect() {
-    this.connection.disconnect();
+    this.connection?.disconnect();
   }
 
   async publish(
@@ -38,8 +39,8 @@ class AWSConnection {
     payload: mqtt.Payload,
     qos: mqtt.QoS,
     retain?: boolean,
-  ): Promise<mqtt.MqttRequest> {
-    return this.connection.publish(topic, payload, qos, retain);
+  ): Promise<mqtt.MqttRequest | undefined> {
+    return this.connection?.publish(topic, payload, qos, retain);
   }
 }
 

@@ -70,7 +70,7 @@ class WateringJob {
 
   /**
    * Create custom JSON representation of the WateringJob.
-   * @param {WateringJob} WateringJob job to serialize
+   * @param {WateringJob} wateringJob the WateringJob to serialize
    * @returns custom JSON representation that can be used by fromJSON
    */
   static toJSON(wateringJob: WateringJob) {

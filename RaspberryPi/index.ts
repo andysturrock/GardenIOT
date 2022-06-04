@@ -31,6 +31,8 @@ async function main() {
     await relay3.off();
     await relay4.off();
 
+    mqttLogger.dispose();
+
     // Shouldn't be necessary, but just in case, pause to give relays time to switch off.
     await sleep(500);
     process.exit();
