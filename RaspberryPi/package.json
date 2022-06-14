@@ -4,8 +4,6 @@
   "description": "Raspberry Pi parts of GardenIOT project",
   "main": "index.js",
   "dependencies": {
-    "@types/node-schedule": "^2.1.0",
-    "@types/rpi-gpio": "^2.1.1",
     "aws-crt": "^1.12.2",
     "aws-iot-device-sdk-v2": "^1.8.1",
     "class-transformer": "^0.5.1",
@@ -19,6 +17,8 @@
   },
   "devDependencies": {
     "@types/jest": "^28.1.0",
+    "@types/node-schedule": "^2.1.0",
+    "@types/rpi-gpio": "^2.1.1",
     "@typescript-eslint/eslint-plugin": "^5.22.0",
     "@typescript-eslint/parser": "^5.22.0",
     "eslint": "^8.14.0",
