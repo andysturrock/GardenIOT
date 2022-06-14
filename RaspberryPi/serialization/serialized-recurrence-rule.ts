@@ -1,7 +1,6 @@
 import { RecurrenceSegment, Timezone } from 'node-schedule';
 
 interface SerializedRecurrenceRule {
-
   year?: RecurrenceSegment,
   month?: RecurrenceSegment,
   date?: RecurrenceSegment,
