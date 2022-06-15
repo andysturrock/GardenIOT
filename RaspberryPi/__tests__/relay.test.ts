@@ -7,10 +7,10 @@ test('Serialises and deserialises correctly', () => {
 
   const actual = Relay.fromJSON(json);
 
-  expect(expected).toEqual(actual);
+  expect(actual).toEqual(expected);
 
   const expectedJSON = JSON.stringify(expected);
   const actualJSON = JSON.stringify(actual);
 
-  expect(expectedJSON).toEqual(actualJSON);
+  expect(actualJSON).toEqual(expectedJSON);
 });

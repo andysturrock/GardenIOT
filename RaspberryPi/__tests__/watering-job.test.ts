@@ -21,10 +21,10 @@ test('Serialises and deserialises correctly', () => {
   const json = WateringJob.toJSON(expected);
   const actual = WateringJob.fromJSON(json);
 
-  expect(expected).toEqual(actual);
+  expect(actual).toEqual(expected);
 
   const expectedJSON = JSON.stringify(expected);
   const actualJSON = JSON.stringify(actual);
 
-  expect(expectedJSON).toEqual(actualJSON);
+  expect(actualJSON).toEqual(expectedJSON);
 });
