@@ -43,13 +43,17 @@ async function main() {
   await relay3.setup();
   await relay4.setup();
 
-  // Test rule runs every minute for 10 seconds
   const rule = new schedule.RecurrenceRule();
-  rule.minute = new schedule.Range(0, 59);
+  rule.dayOfWeek = new schedule.Range(0, 6);
+  rule.hour = 8;
+  rule.minute = 0;
   const wateringJob = new WateringJob(rule, 10, [relay1, relay2]);
+  rule.minute = 10;
+  const wateringJob2 = new WateringJob(rule, 10, [relay3, relay4]);
 
-  const wateringPlan = new WateringPlan('testplan');
+  const wateringPlan = new WateringPlan('Morning Watering');
   wateringPlan.add(wateringJob);
+  wateringPlan.add(wateringJob2);
   await wateringPlan.save();
 
   await mqttLogger.info('GardenIOT starting up...');
