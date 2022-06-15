@@ -8,7 +8,9 @@ class WateringPlan {
 
   private readonly _name;
 
-  private static readonly fileStorePath = '/wateringplans'; // TODO Make Windows compatible
+  // TODO Make Windows compatible, but low priority given this
+  // is intended to run on a Raspberry Pi.
+  private static readonly fileStorePath = '/wateringplans';
 
   private readonly filename;
 
@@ -19,7 +21,8 @@ class WateringPlan {
 
   async load() {
     const json:string = await fs.readFile(this.filename, 'utf8');
-    const other : WateringPlan = WateringPlan.fromJSON(json);
+    const serializedWateringPlan : SerializedWateringPlan = JSON.parse(json);
+    const other : WateringPlan = WateringPlan.fromJSON(serializedWateringPlan);
     Object.assign(this, other);
   }
 
@@ -36,12 +39,17 @@ class WateringPlan {
     return this._name;
   }
 
-  private get jobs() {
-    return this._jobs;
-  }
-
-  static fromJSON(json: string) {
-    const wateringPlan : WateringPlan = JSON.parse(json);
+  /**
+  * Create a WateringPlan instance from the SerializedWateringPlan.
+  * @param {SerializedWateringPlan} json SerializedWateringPlan to deserialize
+  * @returns new WateringPlan instance
+  */
+  static fromJSON(json: SerializedWateringPlan) {
+    const wateringPlan  = new WateringPlan(json._name);
+    json._jobs.forEach(jobJson => {
+      const wateringJob = WateringJob.fromJSON(jobJson);
+      wateringPlan.add(wateringJob);
+    })
     return wateringPlan;
   }
 
