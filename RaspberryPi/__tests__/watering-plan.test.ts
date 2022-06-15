@@ -3,7 +3,7 @@ import schedule from 'node-schedule';
 import Relay from '../relay';
 import WateringJob from '../watering-job';
 
-test('Serialises and deserialises correctly', () => {
+function createRule() {
   const rule = new schedule.RecurrenceRule();
 
   // Set all the fields
@@ -15,20 +15,49 @@ test('Serialises and deserialises correctly', () => {
   rule.minute = 3;
   rule.second = 5;
   rule.tz = "Europe/London";
-  
-  const relays = [new Relay(Relay.RELAY1), new Relay(Relay.RELAY2)];
-  const wateringJob = new WateringJob(rule, 10, relays);
 
-  const expected = new WateringPlan("Test WateringPlan");
-  expected.add(wateringJob);
+  return rule;
+}
+
+function createRelays() {
+  return [new Relay(Relay.RELAY1), new Relay(Relay.RELAY2)];
+}
+
+function createWateringPlan() {
+  const rule = createRule();
+  const relays = createRelays();
+  const wateringJob = new WateringJob(rule, 10, relays);
+  const wateringPlan = new WateringPlan("Test WateringPlan");
+  wateringPlan.add(wateringJob);
+  return wateringPlan;
+}
+
+test('Serialises and deserialises correctly', () => {
+  const expected = createWateringPlan();
 
   const json = WateringPlan.toJSON(expected);
   const actual = WateringPlan.fromJSON(json);
 
-  expect(expected).toEqual(actual);
+  expect(actual).toEqual(expected);
 
   const expectedJSON = JSON.stringify(expected);
   const actualJSON = JSON.stringify(actual);
 
-  expect(expectedJSON).toEqual(actualJSON);
+  expect(actualJSON).toEqual(expectedJSON);
+});
+
+test('Saves and loads correctly', async () => {
+  const expected = createWateringPlan();
+  await expected.save();
+
+  const actual = createWateringPlan();
+  actual.clearJobs();
+  await actual.load();
+
+  expect(actual).toEqual(expected);
+
+  const expectedJSON = JSON.stringify(expected);
+  const actualJSON = JSON.stringify(actual);
+
+  expect(actualJSON).toEqual(expectedJSON);
 });

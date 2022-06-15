@@ -35,6 +35,10 @@ class WateringPlan {
     this._jobs.push(wateringJob);
   }
 
+  clearJobs() {
+    this._jobs = [];
+  }
+
   get name() {
     return this._name;
   }
