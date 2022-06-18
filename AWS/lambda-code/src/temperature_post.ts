@@ -72,7 +72,11 @@ async function lambdaHandler(event: any): Promise<any> {
     }
   }
   catch (err) {
-    console.error(`Error: ${err.stack}`);
+    if(err instanceof Error) {
+      console.error(`Error: ${err.stack}`);
+    } else {
+      console.error(`Error: ${JSON.stringify(err)}`);
+    }
     return {
       statusCode: 500,
       body: "Error"
