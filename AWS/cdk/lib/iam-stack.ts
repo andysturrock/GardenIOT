@@ -1,10 +1,10 @@
+import { Stack, StackProps } from 'aws-cdk-lib';
 import { Construct } from 'constructs';
-import * as cdk  from 'aws-cdk-lib';
-import { aws_iam as iam } from 'aws-cdk-lib';
+import * as iam  from 'aws-cdk-lib/aws-iam';
 import { getEnv } from './common';
 
-export class IAMStack extends cdk.Stack {
-  constructor(scope: Construct, id: string, props?: cdk.StackProps) {
+export class IAMStack extends Stack {
+  constructor(scope: Construct, id: string, props?: StackProps) {
     super(scope, id, props);
 
     const policyStatementProps: iam.PolicyStatementProps = {

@@ -1,6 +1,6 @@
-import * as cdk from 'aws-cdk-lib';
-import { aws_dynamodb as dynamodb } from 'aws-cdk-lib';
-export interface LambdaStackProps extends cdk.StackProps {
+import { StackProps } from 'aws-cdk-lib';
+import * as dynamodb from 'aws-cdk-lib/aws-dynamodb';
+export interface LambdaStackProps extends StackProps {
     readonly temperatureHistoryTable: dynamodb.Table;
     readonly lastSensorReadingTable: dynamodb.Table;
 }

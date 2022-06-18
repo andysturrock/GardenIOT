@@ -1,12 +1,12 @@
+import { Stack, StackProps, RemovalPolicy } from 'aws-cdk-lib';
 import { Construct } from 'constructs';
-import * as cdk  from 'aws-cdk-lib';
-import { aws_dynamodb as dynamodb } from 'aws-cdk-lib';
+import * as dynamodb from 'aws-cdk-lib/aws-dynamodb';
 
-export class DynamoDBStack extends cdk.Stack {
+export class DynamoDBStack extends Stack {
   public readonly temperatureHistoryTable: dynamodb.Table;
   public readonly lastSensorReadingTable: dynamodb.Table;
 
-  constructor(scope: Construct, id: string, props?: cdk.StackProps) {
+  constructor(scope: Construct, id: string, props?: StackProps) {
     super(scope, id, props);
 
     this.temperatureHistoryTable = new dynamodb.Table(this, 'TemperatureHistoryTable', {
@@ -15,7 +15,7 @@ export class DynamoDBStack extends cdk.Stack {
       sortKey: { name: "sensor_id", type: dynamodb.AttributeType.NUMBER },
       readCapacity: 1,
       writeCapacity: 1,
-      removalPolicy: cdk.RemovalPolicy.DESTROY
+      removalPolicy: RemovalPolicy.DESTROY
     });
     let readScaling = this.temperatureHistoryTable.autoScaleReadCapacity({ minCapacity: 1, maxCapacity: 10 });
     readScaling.scaleOnUtilization({ targetUtilizationPercent: 70 });
@@ -28,7 +28,7 @@ export class DynamoDBStack extends cdk.Stack {
       sortKey: { name: "sensor_id", type: dynamodb.AttributeType.NUMBER },
       readCapacity: 1,
       writeCapacity: 1,
-      removalPolicy: cdk.RemovalPolicy.DESTROY
+      removalPolicy: RemovalPolicy.DESTROY
     });
     readScaling = this.lastSensorReadingTable.autoScaleReadCapacity({ minCapacity: 1, maxCapacity: 10 });
     readScaling.scaleOnUtilization({ targetUtilizationPercent: 70 });

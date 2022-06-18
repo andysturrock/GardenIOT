@@ -1,14 +1,14 @@
+import { Stack } from 'aws-cdk-lib';
 import { Construct } from 'constructs';
-import * as cdk from 'aws-cdk-lib';
-import { aws_iam as iam } from 'aws-cdk-lib';
-import { aws_route53 as route53 } from 'aws-cdk-lib';
-import { aws_route53_targets as targets } from 'aws-cdk-lib';
-import { aws_lambda as lambda } from 'aws-cdk-lib';
-import { aws_certificatemanager as acm } from 'aws-cdk-lib';
-import { aws_apigateway as apigateway } from 'aws-cdk-lib';
+import * as iam from 'aws-cdk-lib/aws-iam';
+import * as route53 from 'aws-cdk-lib/aws-route53';
+import * as targets from 'aws-cdk-lib/aws-route53-targets';
+import * as lambda from 'aws-cdk-lib/aws-lambda';
+import * as acm from 'aws-cdk-lib/aws-certificatemanager';
+import * as apigateway from 'aws-cdk-lib/aws-apigateway';
 import { getEnv, LambdaStackProps } from './common';
 
-export class LambdaStack extends cdk.Stack {
+export class LambdaStack extends Stack {
   constructor(scope: Construct, id: string, props: LambdaStackProps) {
     super(scope, id, props);
 
@@ -48,9 +48,9 @@ export class LambdaStack extends cdk.Stack {
     props.lastSensorReadingTable.grantReadData(temperatureGetLambda);
     props.lastSensorReadingTable.grantReadWriteData(temperaturePostLambda);
 
-    const customDomainName = getEnv('CUSTOM_DOMAIN_NAME')!;
-    const r53ZoneId = getEnv('R53_ZONE_ID')!;
-    const lambdaVersion = getEnv('LAMBDA_VERSION')!;
+    const customDomainName = getEnv('CUSTOM_DOMAIN_NAME', false)!;
+    const r53ZoneId = getEnv('R53_ZONE_ID', false)!;
+    const lambdaVersion = getEnv('LAMBDA_VERSION', false)!;
 
     // Get hold of the hosted zone which has previously been created
     const zone = route53.HostedZone.fromHostedZoneAttributes(this, 'R53Zone', {
