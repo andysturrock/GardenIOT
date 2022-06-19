@@ -12,7 +12,7 @@ export class LambdaStack extends Stack {
   constructor(scope: Construct, id: string, props: LambdaStackProps) {
     super(scope, id, props);
 
-    const policyArn = getEnv('AWS_BOUNDARY_POLICY_ARN');
+    const policyArn = getEnv('AWS_BOUNDARY_POLICY_ARN', true);
     if(policyArn) {
       const boundary = iam.ManagedPolicy.fromManagedPolicyArn(this, 'Boundary', policyArn);
       iam.PermissionsBoundary.of(this).apply(boundary);

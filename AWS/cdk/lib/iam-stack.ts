@@ -70,14 +70,14 @@ export class IAMStack extends Stack {
     };
 
     // Apply the policy to either a role or a group depending on what was specified
-    const roleArn = getEnv('AWS_AUTOMATION_ROLE_ARN');
+    const roleArn = getEnv('AWS_AUTOMATION_ROLE_ARN', true);
     if(roleArn) {
       const role = iam.Role.fromRoleArn(this, "Role", roleArn!);
       const policyStatement = new iam.PolicyStatement(policyStatementProps)
       const policyProps = {roles: [role], statements: [policyStatement]};
       new iam.Policy(this, "Policy", policyProps);
     }
-    const groupArn = getEnv('AWS_AUTOMATION_GROUP_ARN');
+    const groupArn = getEnv('AWS_AUTOMATION_GROUP_ARN', true);
     if(groupArn) {
       const group = iam.Group.fromGroupArn(this, "Role", groupArn!);
       const policyStatement = new iam.PolicyStatement(policyStatementProps)
