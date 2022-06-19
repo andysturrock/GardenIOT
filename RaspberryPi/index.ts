@@ -16,6 +16,8 @@ async function sleep(millis : number) {
 async function main() {
   await mqttLogger.init();
 
+  const logger = mqttLogger.logger;
+
   const relay1 = new Relay(Relay.RELAY1);
   const relay2 = new Relay(Relay.RELAY2);
   const relay3 = new Relay(Relay.RELAY3);
@@ -23,7 +25,7 @@ async function main() {
 
   // Turn off all the relays if we are being killed by SIGINT
   process.on('SIGINT', async () => {
-    await mqttLogger.info('Caught SIGINT, turned relays off and disconnecting from AWS.');
+    logger.info('Caught SIGINT, turned relays off and disconnecting from AWS.');
 
     await schedule.gracefulShutdown();
     await relay1.off();
@@ -31,10 +33,10 @@ async function main() {
     await relay3.off();
     await relay4.off();
 
+    // Wait for messages to be sent to AWS and relays to turn off.
+    await sleep(500);
     mqttLogger.dispose();
 
-    // Shouldn't be necessary, but just in case, pause to give relays time to switch off.
-    await sleep(500);
     process.exit();
   });
 
@@ -47,16 +49,20 @@ async function main() {
   rule.dayOfWeek = new schedule.Range(0, 6);
   rule.hour = 8;
   rule.minute = 0;
-  const wateringJob = new WateringJob(rule, 10, [relay1, relay2]);
-  rule.minute = 10;
-  const wateringJob2 = new WateringJob(rule, 10, [relay3, relay4]);
+  const wateringJob = new WateringJob(rule, 60, [relay1, relay2]);
+
+  const rule2 = new schedule.RecurrenceRule();
+  rule2.dayOfWeek = new schedule.Range(0, 6);
+  rule2.hour = 8;
+  rule2.minute = 10;
+  const wateringJob2 = new WateringJob(rule2, 60, [relay3, relay4]);
 
   const wateringPlan = new WateringPlan('Morning Watering');
   wateringPlan.add(wateringJob);
   wateringPlan.add(wateringJob2);
   await wateringPlan.save();
 
-  await mqttLogger.info('GardenIOT starting up...');
+  logger.info('GardenIOT starting up...');
 }
 
 main();

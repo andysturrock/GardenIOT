@@ -4,6 +4,8 @@ import SerializedRelay from './serialization/serialized-relay';
 
 const gpio = require('rpi-gpio').promise;
 
+const logger = mqttLogger.logger;
+
 class Relay {
   static readonly RELAY1 : RelayId = 35;
 
@@ -44,12 +46,12 @@ class Relay {
 
   async on() {
     await gpio.write(this._id, true);
-    await mqttLogger.info(`Relay ${this._name} (pin ${this._id}) on.`);
+    logger.info(`Relay ${this._name} (pin ${this._id}) on.`);
   }
 
   async off() {
     await gpio.write(this._id, false);
-    await mqttLogger.info(`Relay ${this._name} (pin ${this._id}) off.`);
+    logger.info(`Relay ${this._name} (pin ${this._id}) off.`);
   }
 
   get id() {
