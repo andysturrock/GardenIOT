@@ -11,7 +11,8 @@ export class IOTStack extends Stack {
     super(scope, id, props);
 
     const loggingTopic = getEnv('LOGGING_TOPIC', false)!;
-    const clientId = getEnv('CLIENTID', false)!;
+    const clientId = getEnv('CLIENT_ID', false)!;
+    const certificateArn = getEnv('CERT_ARN', false)!;
 
     const logGroup = new logs.LogGroup(this, 'StatusGroup');
 
@@ -56,9 +57,28 @@ export class IOTStack extends Stack {
         }
       ]
     }
-    const cfnPolicy = new iot.CfnPolicy(this, 'MyCfnPolicy', {
+    const cfnPolicy = new iot.CfnPolicy(this, 'CfnPolicy', {
       policyDocument: policyDocument,
       policyName: 'GardenIOTPolicy',
     });
+
+    const cfnPolicyPrincipalAttachment = new iot.CfnPolicyPrincipalAttachment(this,
+      'CfnPolicyPrincipalAttachment', {
+        policyName: cfnPolicy.policyName!.toString(),
+        principal: certificateArn
+      }
+    );
+
+    cfnPolicyPrincipalAttachment.addDependsOn(cfnPolicy);
+
+    const cfnThingPrincipalAttachment = new iot.CfnThingPrincipalAttachment(this,
+      'CfnThingPrincipalAttachment',
+      {
+        thingName: cfnThing.thingName!.toString(),
+        principal: certificateArn
+      }
+    );
+
+    cfnThingPrincipalAttachment.addDependsOn(cfnThing);
   }
 }
