@@ -10,7 +10,7 @@ class AWSConnection {
     const certFile = getEnv('CERTFILE', false)!;
     const keyFile = getEnv('KEYFILE', false)!;
     const caFile = getEnv('CAFILE', false)!;
-    const clientId = getEnv('CLIENTID', false)!;
+    const clientId = getEnv('CLIENT_ID', false)!;
     const endpoint = getEnv('ENDPOINT', false)!;
 
     const configBuilder = iot.AwsIotMqttConnectionConfigBuilder.new_mtls_builder_from_path(
