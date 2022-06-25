@@ -49,13 +49,13 @@ async function main() {
   rule.dayOfWeek = new schedule.Range(0, 6);
   rule.hour = 8;
   rule.minute = 0;
-  const wateringJob = new WateringJob(rule, 60, [relay1, relay2]);
+  const wateringJob = new WateringJob(rule, 60 * 5, [relay1, relay2]);
 
   const rule2 = new schedule.RecurrenceRule();
   rule2.dayOfWeek = new schedule.Range(0, 6);
   rule2.hour = 8;
   rule2.minute = 10;
-  const wateringJob2 = new WateringJob(rule2, 60, [relay3, relay4]);
+  const wateringJob2 = new WateringJob(rule2, 60 * 5, [relay3, relay4]);
 
   const wateringPlan = new WateringPlan('Morning Watering');
   wateringPlan.add(wateringJob);
