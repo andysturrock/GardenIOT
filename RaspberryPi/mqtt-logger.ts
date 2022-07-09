@@ -23,34 +23,49 @@ class MQTTLogger {
     try {
       this.topic = getEnv('LOGGING_TOPIC', false)!;
     } catch (error) {
-      this._mainLogger.error(error);
+      this._localOnlyLogger.error(error);
       throw error;
     }
   }
   
   async init() {
-    this.connection = new AWSConnection();
-    await this.connection.connect();
-    this._awsLogger.attachTransport(
-      {
-        silly: this.sendMessage.bind(this),
-        debug: this.sendMessage.bind(this),
-        trace: this.sendMessage.bind(this),
-        info: this.sendMessage.bind(this),
-        warn: this.sendMessage.bind(this),
-        error: this.sendMessage.bind(this),
-        fatal: this.sendMessage.bind(this),
-      },
-      "silly"
-    );
+    try {
+      this.connection = new AWSConnection();
+      await this.connection.connect();
+      this._awsLogger.attachTransport(
+        {
+          silly: this.sendMessage.bind(this),
+          debug: this.sendMessage.bind(this),
+          trace: this.sendMessage.bind(this),
+          info: this.sendMessage.bind(this),
+          warn: this.sendMessage.bind(this),
+          error: this.sendMessage.bind(this),
+          fatal: this.sendMessage.bind(this),
+        },
+        "silly"
+      );
+    } catch (error) {
+      this._localOnlyLogger.error(error);
+      throw error;
+    }
   }
 
   async dispose() {
-    await this.connection?.disconnect();
+    try {
+      await this.connection?.disconnect();
+    } catch (error) {
+      this._localOnlyLogger.error(error);
+      throw error;
+    }
   }
 
   private async sendMessage(logObject: ILogObject) {
-    this.sendMessageAsync(logObject);
+    try {
+      this.sendMessageAsync(logObject);
+    } catch (error) {
+      this._localOnlyLogger.error(error);
+      throw error;
+    }
   }
 
   private async sendMessageAsync(logObject: ILogObject) {
