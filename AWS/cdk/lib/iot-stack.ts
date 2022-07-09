@@ -14,11 +14,13 @@ export class IOTStack extends Stack {
     const clientId = getEnv('CLIENT_ID', false)!;
     const certificateArn = getEnv('CERT_ARN', false)!;
 
-    const logGroup = new logs.LogGroup(this, 'StatusGroup');
+    const logGroup = new logs.LogGroup(this, 'StatusGroup', {
+      logGroupName: 'Status'
+    });
 
     new iot_alpha.TopicRule(this, 'LoggingTopicRule', {
       topicRuleName: 'LoggingTopicRule', // optional
-      description: 'Saves messages from the logging topic to S3', // optional
+      description: 'Saves messages from the logging topic to CloudWatch', // optional
       sql: iot_alpha.IotSql.fromStringAsVer20160323(`SELECT * FROM '${loggingTopic}'`),
       actions: [new actions.CloudWatchLogsAction(logGroup)],
     });
