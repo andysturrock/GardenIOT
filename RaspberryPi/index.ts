@@ -30,12 +30,12 @@ async function main() {
       logger.info('Caught SIGINT, turned relays off and disconnecting from AWS.');
 
       await schedule.gracefulShutdown();
-      await relay1.off();
-      await relay2.off();
-      await relay3.off();
-      await relay4.off();
+      await relay1.close();
+      await relay2.close();
+      await relay3.close();
+      await relay4.close();
 
-      // Wait for messages to be sent to AWS and relays to turn off.
+      // Wait for messages to be sent to AWS and relays to close.
       await sleep(1000);
       mqttLogger.dispose();
 

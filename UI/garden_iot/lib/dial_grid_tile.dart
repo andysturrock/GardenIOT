@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:garden_iot/dial_editor.dart';
-import 'package:garden_iot/dial_type_dropdown.dart';
 
 class DialGridTile extends StatefulWidget {
   final int initialIndex;

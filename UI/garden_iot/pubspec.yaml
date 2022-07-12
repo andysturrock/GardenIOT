@@ -33,6 +33,7 @@ dependencies:
   provider: ^5.0.0
   numberpicker: ^2.1.1
   path_provider: ^2.0.2
+  mqtt_client: ^9.6.8
 
 dev_dependencies:
   flutter_test:

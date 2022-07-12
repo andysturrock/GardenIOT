@@ -44,14 +44,14 @@ class Relay {
     await gpio.setup(this._id, gpio.DIR_OUT);
   }
 
-  async on() {
+  async open() {
     await gpio.write(this._id, true);
-    logger.info(`Relay ${this._name} (pin ${this._id}) on.`);
+    logger.info(`Relay ${this._name} (pin ${this._id}) open.`);
   }
 
-  async off() {
+  async close() {
     await gpio.write(this._id, false);
-    logger.info(`Relay ${this._name} (pin ${this._id}) off.`);
+    logger.info(`Relay ${this._name} (pin ${this._id}) closed.`);
   }
 
   get id() {
