@@ -7,7 +7,7 @@ import util from 'util';
 class MQTTLogger {
   private sequence = 0;
 
-  private connection: AWSConnection | undefined;
+  private _awsConnection: AWSConnection | undefined;
 
   private topic;
 
@@ -22,16 +22,6 @@ class MQTTLogger {
 
     try {
       this.topic = getEnv('LOGGING_TOPIC', false)!;
-    } catch (error) {
-      this._localOnlyLogger.error(error);
-      throw error;
-    }
-  }
-  
-  async init() {
-    try {
-      this.connection = new AWSConnection();
-      await this.connection.connect();
       this._awsLogger.attachTransport(
         {
           silly: this.sendMessage.bind(this),
@@ -50,13 +40,8 @@ class MQTTLogger {
     }
   }
 
-  async dispose() {
-    try {
-      await this.connection?.disconnect();
-    } catch (error) {
-      this._localOnlyLogger.error(error);
-      throw error;
-    }
+  async init(awsConnection : AWSConnection) {
+    this._awsConnection = awsConnection;
   }
 
   private async sendMessage(logObject: ILogObject) {
@@ -79,7 +64,7 @@ class MQTTLogger {
       const json = JSON.stringify(msg);
       // Assert connection is defined here as should be impossible to call this
       // function without calling init() first.
-      const res = await this.connection!.publish(this.topic, json, mqtt.QoS.AtLeastOnce);
+      const res = await this._awsConnection!.publish(this.topic, json, mqtt.QoS.AtLeastOnce);
 
       if(!res) {
         this._localOnlyLogger.warn(`Sending log to AWS may have failed: ${res}`);

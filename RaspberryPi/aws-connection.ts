@@ -42,6 +42,10 @@ class AWSConnection {
   ): Promise<mqtt.MqttRequest | undefined> {
     return this.connection?.publish(topic, payload, qos, retain);
   }
+
+  async subscribe(topic: string, qos: mqtt.QoS, on_message?: mqtt.OnMessageCallback): Promise<mqtt.MqttSubscribeRequest | undefined> {
+    return this.connection?.subscribe(topic, qos, on_message);
+  }
 }
 
 export default AWSConnection;

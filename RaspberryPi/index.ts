@@ -1,9 +1,12 @@
 import schedule from 'node-schedule';
 import 'reflect-metadata';
+import AWSConnection from './aws-connection';
 
 import mqttLogger from './mqtt-logger';
 
 import Relay from './relay';
+import ShadowRelay from './shadow-relay';
+
 import WateringJob from './watering-job';
 import WateringPlan from './watering-plan';
 
@@ -14,16 +17,18 @@ async function sleep(millis : number) {
 }
 
 async function main() {
-  await mqttLogger.init();
+  const awsConnection = new AWSConnection();
+  await awsConnection.connect();
+  await mqttLogger.init(awsConnection);
   const logger = mqttLogger.logger;
 
   logger.info('GardenIOT starting up...');
 
   try {
-    const relay1 = new Relay(Relay.RELAY1);
-    const relay2 = new Relay(Relay.RELAY2);
-    const relay3 = new Relay(Relay.RELAY3);
-    const relay4 = new Relay(Relay.RELAY4);
+    const relay1 = new ShadowRelay(Relay.RELAY1, awsConnection);
+    const relay2 = new ShadowRelay(Relay.RELAY2, awsConnection);
+    const relay3 = new ShadowRelay(Relay.RELAY3, awsConnection);
+    const relay4 = new ShadowRelay(Relay.RELAY4, awsConnection);
 
     // Turn off all the relays if we are being killed by SIGINT
     process.on('SIGINT', async () => {
@@ -37,36 +42,41 @@ async function main() {
 
       // Wait for messages to be sent to AWS and relays to close.
       await sleep(1000);
-      mqttLogger.dispose();
+      await awsConnection.disconnect();
 
       process.exit();
     });
 
-    await relay1.setup();
-    await relay2.setup();
-    await relay3.setup();
-    await relay4.setup();
+    await relay1.init();
+    await relay2.init();
+    await relay3.init();
+    await relay4.init();
 
-    const rule = new schedule.RecurrenceRule();
-    rule.dayOfWeek = new schedule.Range(0, 6);
-    rule.hour = 8;
-    rule.minute = 0;
-    const wateringJob = new WateringJob(rule, 60 * 5, [relay1, relay2]);
+    // const rule = new schedule.RecurrenceRule();
+    // rule.second = 30;
+    // const wateringJob = new WateringJob(rule, 5, [relay1, relay2]);
 
-    const rule2 = new schedule.RecurrenceRule();
-    rule2.dayOfWeek = new schedule.Range(0, 6);
-    rule2.hour = 8;
-    rule2.minute = 10;
-    const wateringJob2 = new WateringJob(rule2, 60 * 5, [relay3, relay4]);
+    // const wateringPlan = new WateringPlan('Test Watering Every 30 secs for 5 secs');
+    // wateringPlan.add(wateringJob);
+    // await wateringPlan.save();
 
-    const wateringPlan = new WateringPlan('Morning Watering');
-    wateringPlan.add(wateringJob);
-    wateringPlan.add(wateringJob2);
-    await wateringPlan.save();
+    
 
     logger.info('GardenIOT running...');
+
+    for(let i=0; i < 10; ++i) {
+      await relay1.open();
+      await sleep(5000);
+      await relay1.close();
+    }
+
+    
   } catch (error) {
-    logger.error(error);
+    if(error instanceof Error) {
+      console.error(`Error: ${error.stack}`);
+    } else {
+      console.error(`Error: ${JSON.stringify(error)}`);
+    }
   }
 }
 

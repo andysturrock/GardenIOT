@@ -2,7 +2,8 @@ import mqttLogger from './mqtt-logger';
 import { RelayId } from './relay-id';
 import SerializedRelay from './serialization/serialized-relay';
 
-const gpio = require('rpi-gpio').promise;
+//const gpio = require('rpi-gpio').promise;
+import { MockGPIO as gpio } from './__tests__/mock-gpio';
 
 const logger = mqttLogger.logger;
 
@@ -40,7 +41,7 @@ class Relay {
     }
   }
 
-  async setup() {
+  async init() {
     await gpio.setup(this._id, gpio.DIR_OUT);
   }
 
