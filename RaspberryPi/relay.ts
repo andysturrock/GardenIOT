@@ -45,6 +45,7 @@ class Relay {
 
   async init() {
     await gpio.setup(this._id, gpio.DIR_OUT);
+    await this.close();
   }
 
   async dispose() {
