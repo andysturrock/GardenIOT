@@ -47,6 +47,10 @@ class Relay {
     await gpio.setup(this._id, gpio.DIR_OUT);
   }
 
+  async dispose() {
+    await this.close();
+  }
+
   async open() {
     await gpio.write(this._id, true);
     logger.info(`Relay ${this._name} (pin ${this._id}) open.`);
