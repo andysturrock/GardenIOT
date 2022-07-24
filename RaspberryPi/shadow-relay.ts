@@ -12,6 +12,7 @@ const logger = mqttLogger.logger;
 class ShadowRelay extends Relay {
   private _awsConnection : AWSConnection;
   private thingName: string;
+  private version = 0;
 
   constructor(id : RelayId, awsConnection: AWSConnection) {
     super(id);
@@ -20,8 +21,9 @@ class ShadowRelay extends Relay {
   }
 
   async init() {
-    super.init();
+    // Must subscribe first so we get the initial events from super.init()
     await this.subscribe();
+    await super.init();
   }
 
   async dispose() {
@@ -53,13 +55,18 @@ class ShadowRelay extends Relay {
   }
 
   private debugLog(method: string, topic: string, payload: ArrayBuffer) {
-    const textDecoder = new TextDecoder("utf-8");
+    
     const json = {
       method: method,
       topic: topic,
-      payload: textDecoder.decode(payload)
+      payload: this.decodePayload(payload)
     }
     logger.debug(JSON.stringify(json));
+  }
+
+  private decodePayload(payload: ArrayBuffer) {
+    const textDecoder = new TextDecoder("utf-8");
+    return textDecoder.decode(payload);
   }
 
   private onAccepted(topic: string, payload: ArrayBuffer, dup: boolean, qos: mqtt.QoS, retain: boolean) : void {
@@ -70,12 +77,32 @@ class ShadowRelay extends Relay {
     this.debugLog('onRejected', topic, payload);
   }
 
-  private onDelta(topic: string, payload: ArrayBuffer, dup: boolean, qos: mqtt.QoS, retain: boolean) : void {
+  private async onDelta(topic: string, payload: ArrayBuffer, dup: boolean, qos: mqtt.QoS, retain: boolean) : Promise<void> {
     this.debugLog('onDelta', topic, payload);
+
+    const decodedPayload = JSON.parse(this.decodePayload(payload));
+    const version = decodedPayload?.version;
+    if(version < this.version) {
+      logger.debug(`Discarding delta with lower version (current version = ${this.version}, delta version = ${version}).`);
+      return;
+    }
+    logger.debug(`onDelta current version = ${this.version}, delta version = ${version}`)
+
+    if(decodedPayload?.state?.open_closed === 'open') {
+      await this.open();
+    } else if(decodedPayload?.state?.open_closed === 'closed') {
+      await this.close();
+    }
+    else {
+      logger.warn(`Unknown delta relay state`)
+    }
   }
 
   private onDocuments(topic: string, payload: ArrayBuffer, dup: boolean, qos: mqtt.QoS, retain: boolean) : void {
     this.debugLog('onDocuments', topic, payload);
+    const decodedPayload = JSON.parse(this.decodePayload(payload));
+    this.version = decodedPayload?.current?.version;
+    logger.debug(`onDocs current version = ${this.version}`)
   }
 
   private async subscribe() {
