@@ -24,6 +24,11 @@ class ShadowRelay extends Relay {
     await this.subscribe();
   }
 
+  async dispose() {
+    await super.dispose();
+    await this.unsubscribe();
+  }
+
   async open() {
     await super.open();
     await this.publishShadowUpdate('open');
@@ -36,19 +41,18 @@ class ShadowRelay extends Relay {
 
   private async publishShadowUpdate(openClosed: string) {
     const topic = `$aws/things/${this.thingName}/shadow/name/${this.name}/update`;
-    const stateReportedDoc = `
+    const stateReportedDoc = 
     {
       "state": {
           "reported": {
-              "open_closed": ${openClosed}
+              "open_closed": `${openClosed}`
           }
       }
-    }
-    `;
+    };
     await this._awsConnection.publish(topic, stateReportedDoc, mqtt.QoS.AtLeastOnce);
   }
 
-  private sendDebug(method: string, topic: string, payload: ArrayBuffer) {
+  private debugLog(method: string, topic: string, payload: ArrayBuffer) {
     const textDecoder = new TextDecoder("utf-8");
     const json = {
       method: method,
@@ -59,23 +63,19 @@ class ShadowRelay extends Relay {
   }
 
   private onAccepted(topic: string, payload: ArrayBuffer, dup: boolean, qos: mqtt.QoS, retain: boolean) : void {
-    // this.sendDebug('onAccepted', topic, payload);
-    logger.debug('onAccepted')
+    this.debugLog('onAccepted', topic, payload);
   }
 
   private onRejected(topic: string, payload: ArrayBuffer, dup: boolean, qos: mqtt.QoS, retain: boolean) : void {
-    // this.sendDebug('onRejected', topic, payload);
-    logger.debug('onRejected')
+    this.debugLog('onRejected', topic, payload);
   }
 
   private onDelta(topic: string, payload: ArrayBuffer, dup: boolean, qos: mqtt.QoS, retain: boolean) : void {
-    // this.sendDebug('onDelta', topic, payload);
-    logger.debug('onDelta')
+    this.debugLog('onDelta', topic, payload);
   }
 
   private onDocuments(topic: string, payload: ArrayBuffer, dup: boolean, qos: mqtt.QoS, retain: boolean) : void {
-    // this.sendDebug('sendDebug', topic, payload);
-    logger.debug('onDocuments')
+    this.debugLog('onDocuments', topic, payload);
   }
 
   private async subscribe() {
@@ -84,6 +84,14 @@ class ShadowRelay extends Relay {
     await this._awsConnection.subscribe(`${baseTopic}/rejected`, mqtt.QoS.AtLeastOnce, this.onRejected.bind(this));
     await this._awsConnection.subscribe(`${baseTopic}/delta`, mqtt.QoS.AtLeastOnce, this.onDelta.bind(this));
     await this._awsConnection.subscribe(`${baseTopic}/documents`, mqtt.QoS.AtLeastOnce, this.onDocuments.bind(this));
+  }
+
+  private async unsubscribe() {
+    const baseTopic = `$aws/things/${this.thingName}/shadow/name/${this.name}/update`;
+    await this._awsConnection.unsubscribe(`${baseTopic}/accepted`);
+    await this._awsConnection.unsubscribe(`${baseTopic}/rejected`);
+    await this._awsConnection.unsubscribe(`${baseTopic}/delta`);
+    await this._awsConnection.unsubscribe(`${baseTopic}/documents`);
   }
 }
 
