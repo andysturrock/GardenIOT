@@ -13,6 +13,11 @@ export class IOTStack extends Stack {
     const loggingTopic = getEnv('LOGGING_TOPIC', false)!;
     const clientId = getEnv('CLIENT_ID', false)!;
     const certificateArn = getEnv('CERT_ARN', false)!;
+    const baseThingShadowUpdateTopic = `$aws/things/${clientId}/shadow/name/*/update`;
+    const thingShadowUpdateAcceptedTopic = `${baseThingShadowUpdateTopic}/accepted`;
+    const thingShadowUpdateRejectedTopic = `${baseThingShadowUpdateTopic}/rejected`;
+    const thingShadowUpdateDeltaTopic = `${baseThingShadowUpdateTopic}/delta`;
+    const thingShadowUpdateDocumentsTopic = `${baseThingShadowUpdateTopic}/documents`;
 
     const logGroup = new logs.LogGroup(this, 'StatusGroup', {
       logGroupName: 'Status'
@@ -40,14 +45,22 @@ export class IOTStack extends Stack {
             "iot:RetainPublish"
           ],
           "Resource": [
-            `arn:aws:iot:${this.region}:${this.account}:topic/${loggingTopic}`
+            `arn:aws:iot:${this.region}:${this.account}:topic/${loggingTopic}`,
+            `arn:aws:iot:${this.region}:${this.account}:topic/${thingShadowUpdateAcceptedTopic}`,
+            `arn:aws:iot:${this.region}:${this.account}:topic/${thingShadowUpdateRejectedTopic}`,
+            `arn:aws:iot:${this.region}:${this.account}:topic/${thingShadowUpdateDeltaTopic}`,
+            `arn:aws:iot:${this.region}:${this.account}:topic/${thingShadowUpdateDocumentsTopic}`,
           ]
         },
         {
           "Effect": "Allow",
           "Action": "iot:Subscribe",
           "Resource": [
-            `arn:aws:iot:${this.region}:${this.account}:topicfilter/${loggingTopic}`
+            `arn:aws:iot:${this.region}:${this.account}:topicfilter/${loggingTopic}`,
+            `arn:aws:iot:${this.region}:${this.account}:topicfilter/${thingShadowUpdateAcceptedTopic}`,
+            `arn:aws:iot:${this.region}:${this.account}:topicfilter/${thingShadowUpdateRejectedTopic}`,
+            `arn:aws:iot:${this.region}:${this.account}:topicfilter/${thingShadowUpdateDeltaTopic}`,
+            `arn:aws:iot:${this.region}:${this.account}:topicfilter/${thingShadowUpdateDocumentsTopic}`,
           ]
         },
         {

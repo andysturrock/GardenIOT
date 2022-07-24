@@ -1,9 +1,11 @@
+import getEnv from './getenv';
 import mqttLogger from './mqtt-logger';
 import { RelayId } from './relay-id';
 import SerializedRelay from './serialization/serialized-relay';
 
-//const gpio = require('rpi-gpio').promise;
-import { MockGPIO as gpio } from './__tests__/mock-gpio';
+import { MockGPIO } from './__tests__/mock-gpio';
+const mockGPIO = getEnv('LOGGING_TOPIC', true);
+const gpio = mockGPIO? MockGPIO : require('rpi-gpio').promise;
 
 const logger = mqttLogger.logger;
 

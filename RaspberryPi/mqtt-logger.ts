@@ -19,9 +19,12 @@ class MQTTLogger {
     this._mainLogger = new TSLogger();
     this._awsLogger = this._mainLogger.getChildLogger({name: "MQTTLogger"});
     this._localOnlyLogger = new TSLogger();
+    this.topic = getEnv('LOGGING_TOPIC', false)!;
+  }
 
+  async init(awsConnection : AWSConnection) {
+    this._awsConnection = awsConnection;
     try {
-      this.topic = getEnv('LOGGING_TOPIC', false)!;
       this._awsLogger.attachTransport(
         {
           silly: this.sendMessage.bind(this),
@@ -38,10 +41,6 @@ class MQTTLogger {
       this._localOnlyLogger.error(error);
       throw error;
     }
-  }
-
-  async init(awsConnection : AWSConnection) {
-    this._awsConnection = awsConnection;
   }
 
   private async sendMessage(logObject: ILogObject) {

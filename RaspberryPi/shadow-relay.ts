@@ -31,7 +31,7 @@ class ShadowRelay extends Relay {
 
   async close() {
     await super.close();
-    // await this.publishShadowUpdate('closed');
+    await this.publishShadowUpdate('closed');
   }
 
   private async publishShadowUpdate(openClosed: string) {
@@ -59,27 +59,31 @@ class ShadowRelay extends Relay {
   }
 
   private onAccepted(topic: string, payload: ArrayBuffer, dup: boolean, qos: mqtt.QoS, retain: boolean) : void {
-    this.sendDebug('onAccepted', topic, payload);
+    // this.sendDebug('onAccepted', topic, payload);
+    logger.debug('onAccepted')
   }
 
   private onRejected(topic: string, payload: ArrayBuffer, dup: boolean, qos: mqtt.QoS, retain: boolean) : void {
-    this.sendDebug('onRejected', topic, payload);
+    // this.sendDebug('onRejected', topic, payload);
+    logger.debug('onRejected')
   }
 
   private onDelta(topic: string, payload: ArrayBuffer, dup: boolean, qos: mqtt.QoS, retain: boolean) : void {
-    this.sendDebug('onDelta', topic, payload);
+    // this.sendDebug('onDelta', topic, payload);
+    logger.debug('onDelta')
   }
 
   private onDocuments(topic: string, payload: ArrayBuffer, dup: boolean, qos: mqtt.QoS, retain: boolean) : void {
-    this.sendDebug('sendDebug', topic, payload);
+    // this.sendDebug('sendDebug', topic, payload);
+    logger.debug('onDocuments')
   }
 
   private async subscribe() {
     const baseTopic = `$aws/things/${this.thingName}/shadow/name/${this.name}/update`;
-    this._awsConnection.subscribe(`${baseTopic}/accepted`, mqtt.QoS.AtLeastOnce, this.onAccepted.bind(this));
-    this._awsConnection.subscribe(`${baseTopic}/rejected`, mqtt.QoS.AtLeastOnce, this.onRejected.bind(this));
-    this._awsConnection.subscribe(`${baseTopic}/delta`, mqtt.QoS.AtLeastOnce, this.onDelta.bind(this));
-    this._awsConnection.subscribe(`${baseTopic}/documents`, mqtt.QoS.AtLeastOnce, this.onDocuments.bind(this));
+    await this._awsConnection.subscribe(`${baseTopic}/accepted`, mqtt.QoS.AtLeastOnce, this.onAccepted.bind(this));
+    await this._awsConnection.subscribe(`${baseTopic}/rejected`, mqtt.QoS.AtLeastOnce, this.onRejected.bind(this));
+    await this._awsConnection.subscribe(`${baseTopic}/delta`, mqtt.QoS.AtLeastOnce, this.onDelta.bind(this));
+    await this._awsConnection.subscribe(`${baseTopic}/documents`, mqtt.QoS.AtLeastOnce, this.onDocuments.bind(this));
   }
 }
 
