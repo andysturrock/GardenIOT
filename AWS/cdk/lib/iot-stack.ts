@@ -10,10 +10,13 @@ export class IOTStack extends Stack {
   constructor(scope: Construct, id: string, props?: StackProps) {
     super(scope, id, props);
 
-    const loggingTopic = getEnv('LOGGING_TOPIC', false)!;
     const clientId = getEnv('CLIENT_ID', false)!;
+    const loggingTopic = `${clientId}/logging`;
     const certificateArn = getEnv('CERT_ARN', false)!;
-    const thingShadowUpdateTopic = `$aws/things/${clientId}/shadow/name/*/update`;
+    // Note we are not using an interpolated string in this next statement.
+    // The string "${iot:Connection.Thing.ThingName}" (ie with the $ sign and {}) is what we actually
+    // want to set in the policy.  That means "anything registered as a thing in IOT core".
+    const thingShadowUpdateTopic = '$aws/things/${iot:Connection.Thing.ThingName}/shadow/name/*/update';
     const thingShadowUpdateAcceptedTopic = `${thingShadowUpdateTopic}/accepted`;
     const thingShadowUpdateRejectedTopic = `${thingShadowUpdateTopic}/rejected`;
     const thingShadowUpdateDeltaTopic = `${thingShadowUpdateTopic}/delta`;
@@ -45,7 +48,8 @@ export class IOTStack extends Stack {
             "iot:RetainPublish"
           ],
           "Resource": [
-            `arn:aws:iot:${this.region}:${this.account}:topic/${loggingTopic}`,
+            // As above, note quoted $ to use $ sign in the policy.
+            `arn:aws:iot:${this.region}:${this.account}:topic/\${iot:Connection.Thing.ThingName}/logging`,
             `arn:aws:iot:${this.region}:${this.account}:topic/${thingShadowUpdateTopic}`,
             `arn:aws:iot:${this.region}:${this.account}:topic/${thingShadowUpdateAcceptedTopic}`,
             `arn:aws:iot:${this.region}:${this.account}:topic/${thingShadowUpdateRejectedTopic}`,
@@ -57,7 +61,8 @@ export class IOTStack extends Stack {
           "Effect": "Allow",
           "Action": "iot:Subscribe",
           "Resource": [
-            `arn:aws:iot:${this.region}:${this.account}:topicfilter/${loggingTopic}`,
+            // As above note quoted $
+            `arn:aws:iot:${this.region}:${this.account}:topicfilter/\${iot:Connection.Thing.ThingName}/logging`,
             `arn:aws:iot:${this.region}:${this.account}:topicfilter/${thingShadowUpdateTopic}`,
             `arn:aws:iot:${this.region}:${this.account}:topicfilter/${thingShadowUpdateAcceptedTopic}`,
             `arn:aws:iot:${this.region}:${this.account}:topicfilter/${thingShadowUpdateRejectedTopic}`,
@@ -69,7 +74,8 @@ export class IOTStack extends Stack {
           "Effect": "Allow",
           "Action": "iot:Connect",
           "Resource": [
-            `arn:aws:iot:${this.region}:${this.account}:client/${clientId}`
+            // As above note quoted $
+            `arn:aws:iot:${this.region}:${this.account}:client/\${iot:Connection.Thing.ThingName}`
           ]
         }
       ]
