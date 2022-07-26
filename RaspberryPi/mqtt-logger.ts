@@ -9,7 +9,7 @@ class MQTTLogger {
 
   private _awsConnection: AWSConnection | undefined;
 
-  private topic;
+  private topic = "";
 
   private _mainLogger;
   private _awsLogger;
@@ -19,7 +19,9 @@ class MQTTLogger {
     this._mainLogger = new TSLogger();
     this._awsLogger = this._mainLogger.getChildLogger({name: "MQTTLogger"});
     this._localOnlyLogger = new TSLogger();
-    this.topic = getEnv('LOGGING_TOPIC', false)!;
+    // We have a convention that the thing logs to ${CLIENT_ID}/logging
+    this.topic = getEnv('CLIENT_ID', false)!;
+    this.topic = `${this.topic}/logging`;
   }
 
   async init(awsConnection : AWSConnection) {
