@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:garden_iot/dials_grid.dart';
+import 'package:garden_iot/shadow_relay_model.dart';
 import 'package:garden_iot/temperature_model.dart';
-import 'package:garden_iot/water_now.dart';
+import 'package:garden_iot/water_now_grid.dart';
 import 'package:provider/provider.dart';
 
 void main() {
@@ -12,6 +13,7 @@ void main() {
     MultiProvider(
       providers: [
         ChangeNotifierProvider(create: (_) => TemperatureModel(pollPeriod)),
+        Provider<ShadowRelayModel>(create: (_) => ShadowRelayModel()),
       ],
       child: MyApp(),
     ),
@@ -29,10 +31,10 @@ class MyApp extends StatelessWidget {
             bottom: const TabBar(
               tabs: [
                 Tab(icon: Icon(Icons.home)),
-                Tab(icon: Icon(Icons.water)),
+                Tab(icon: Icon(Icons.water_drop)),
               ],
             ),
-            title: const Text('Tabs Demo'),
+            title: const Text('Garden IOT'),
           ),
           body: TabBarView(
             children: [
