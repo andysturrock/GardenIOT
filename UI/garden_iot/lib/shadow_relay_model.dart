@@ -77,10 +77,10 @@ class ShadowRelayModel {
 
   Future<void> _mqttConnect() async {
     ByteData rootCA = await rootBundle.load('assets/certs/AmazonRootCA1.pem');
-    ByteData deviceCert = await rootBundle.load(
-        'assets/certs/cert-certificate.pem.crt');
-    ByteData privateKey = await rootBundle.load(
-        'assets/certs/cert-private.pem.key');
+    ByteData deviceCert =
+        await rootBundle.load('assets/certs/cert-certificate.pem.crt');
+    ByteData privateKey =
+        await rootBundle.load('assets/certs/cert-private.pem.key');
 
     SecurityContext context = SecurityContext.defaultContext;
     context.setClientAuthoritiesBytes(rootCA.buffer.asUint8List());
@@ -155,8 +155,18 @@ class ShadowRelayModel {
     final recMess = mqttReceivedMessages[0].payload as MqttPublishMessage;
     String json = utf8.decode(recMess.payload.message);
     print('json = ${json}');
-    ReportedState state = ReportedState.fromJson(jsonDecode(json));
-    print('open_closed = ${state.reported.openClosed.open_closed}');
+    try {
+      ReportedState state = ReportedState.fromJson(jsonDecode(json));
+      print('reported open_closed = ${state.reported.openClosed.open_closed}');
+    } catch (e) {
+      print('Not a ReportedState: ${e}');
+    }
+    try {
+      DesiredState state = DesiredState.fromJson(jsonDecode(json));
+      print('desired open_closed = ${state.desired.openClosed.open_closed}');
+    } catch (e) {
+      print('Not a DesiredState: ${e}');
+    }
   }
 
   void onError(Object error) {}
