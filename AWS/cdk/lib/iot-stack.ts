@@ -21,6 +21,10 @@ export class IOTStack extends Stack {
     const thingShadowUpdateRejectedTopic = `${thingShadowUpdateTopic}/rejected`;
     const thingShadowUpdateDeltaTopic = `${thingShadowUpdateTopic}/delta`;
     const thingShadowUpdateDocumentsTopic = `${thingShadowUpdateTopic}/documents`;
+    const thingShadowGetTopic = '$aws/things/${iot:Connection.Thing.ThingName}/shadow/name/*/get';
+    const thingShadowGetAcceptedTopic = '$aws/things/${iot:Connection.Thing.ThingName}/shadow/name/*/get/accepted';
+    const thingShadowGetRejectedTopic = '$aws/things/${iot:Connection.Thing.ThingName}/shadow/name/*/get/rejected';
+    
 
     const logGroup = new logs.LogGroup(this, 'StatusGroup', {
       logGroupName: 'Status'
@@ -37,7 +41,7 @@ export class IOTStack extends Stack {
       thingName: `${clientId}`,
     });
 
-    const policyDocument = {
+    const policyDocument1 = {
       "Version": "2012-10-17",
       "Statement": [
         {
@@ -55,8 +59,17 @@ export class IOTStack extends Stack {
             `arn:aws:iot:${this.region}:${this.account}:topic/${thingShadowUpdateRejectedTopic}`,
             `arn:aws:iot:${this.region}:${this.account}:topic/${thingShadowUpdateDeltaTopic}`,
             `arn:aws:iot:${this.region}:${this.account}:topic/${thingShadowUpdateDocumentsTopic}`,
+            `arn:aws:iot:${this.region}:${this.account}:topic/${thingShadowGetTopic}`,
+            `arn:aws:iot:${this.region}:${this.account}:topic/${thingShadowGetAcceptedTopic}`,
+            `arn:aws:iot:${this.region}:${this.account}:topic/${thingShadowGetRejectedTopic}`,
+            
           ]
-        },
+        }
+      ]
+    }
+    const policyDocument2 = {
+      "Version": "2012-10-17",
+      "Statement": [
         {
           "Effect": "Allow",
           "Action": "iot:Subscribe",
@@ -68,8 +81,17 @@ export class IOTStack extends Stack {
             `arn:aws:iot:${this.region}:${this.account}:topicfilter/${thingShadowUpdateRejectedTopic}`,
             `arn:aws:iot:${this.region}:${this.account}:topicfilter/${thingShadowUpdateDeltaTopic}`,
             `arn:aws:iot:${this.region}:${this.account}:topicfilter/${thingShadowUpdateDocumentsTopic}`,
+            `arn:aws:iot:${this.region}:${this.account}:topicfilter/${thingShadowGetTopic}`,
+            `arn:aws:iot:${this.region}:${this.account}:topicfilter/${thingShadowGetAcceptedTopic}`,
+            `arn:aws:iot:${this.region}:${this.account}:topicfilter/${thingShadowGetRejectedTopic}`,
+
           ]
-        },
+        }
+      ]
+    }
+    const policyDocument3 = {
+      "Version": "2012-10-17",
+      "Statement": [
         {
           "Effect": "Allow",
           "Action": "iot:Connect",
@@ -80,28 +102,34 @@ export class IOTStack extends Stack {
         }
       ]
     }
-    const cfnPolicy = new iot.CfnPolicy(this, 'CfnPolicy', {
-      policyDocument: policyDocument,
-      policyName: 'GardenIOTPolicy',
+    const policyDocuments = [policyDocument1, policyDocument2, policyDocument3];
+
+    let index = 0;
+    policyDocuments.forEach((policyDocument) => {
+      ++index;
+      const cfnPolicy = new iot.CfnPolicy(this, `CfnPolicy_${index}`, {
+        policyDocument: policyDocument,
+        policyName: `GardenIOTPolicy_${index}`,
+      });
+
+      const cfnPolicyPrincipalAttachment = new iot.CfnPolicyPrincipalAttachment(this,
+        `CfnPolicyPrincipalAttachment_${index}`, {
+          policyName: cfnPolicy.policyName!.toString(),
+          principal: certificateArn
+        }
+      );
+
+      cfnPolicyPrincipalAttachment.addDependsOn(cfnPolicy);
+
+      const cfnThingPrincipalAttachment = new iot.CfnThingPrincipalAttachment(this,
+        `CfnThingPrincipalAttachment_${index}`,
+        {
+          thingName: cfnThing.thingName!.toString(),
+          principal: certificateArn
+        }
+      );
+
+      cfnThingPrincipalAttachment.addDependsOn(cfnThing);
     });
-
-    const cfnPolicyPrincipalAttachment = new iot.CfnPolicyPrincipalAttachment(this,
-      'CfnPolicyPrincipalAttachment', {
-        policyName: cfnPolicy.policyName!.toString(),
-        principal: certificateArn
-      }
-    );
-
-    cfnPolicyPrincipalAttachment.addDependsOn(cfnPolicy);
-
-    const cfnThingPrincipalAttachment = new iot.CfnThingPrincipalAttachment(this,
-      'CfnThingPrincipalAttachment',
-      {
-        thingName: cfnThing.thingName!.toString(),
-        principal: certificateArn
-      }
-    );
-
-    cfnThingPrincipalAttachment.addDependsOn(cfnThing);
   }
 }
