@@ -34,8 +34,12 @@ void onDisconnected() {
   print('onDisconnected');
 }
 
-void stateChanged(bool relayIsOpen) {
-  print('stateChanged relay: ${relayIsOpen}');
+void stateChanged1(bool relayIsOpen) {
+  print('stateChanged1 relay open? ${relayIsOpen}');
+}
+
+void stateChanged2(bool relayIsOpen) {
+  print('stateChanged2 relay open? ${relayIsOpen}');
 }
 
 void main() {
@@ -50,12 +54,24 @@ void main() {
     if (connected) {
       print('Connected');
     }
-    model.addRelayStateListener(1, stateChanged);
+    model.addRelayStateListener(1, stateChanged1);
+    model.addRelayStateListener(2, stateChanged2);
 
     await Future.delayed(const Duration(milliseconds: 25 * 1000));
 
-    model.removeRelayStateListener(1, stateChanged);
+    model.removeRelayStateListener(1, stateChanged1);
+    model.removeRelayStateListener(2, stateChanged2);
     model.mqttDisconnect();
     model.removeOnDisconnectedCallback(onDisconnected);
+  });
+
+  test('Test getting relay id from topic using Regex', () async {
+    final topic =
+        "\$aws/things/linux-vpc-3/shadow/name/RELAY123/update/accepted";
+    final relayId = topic.replaceFirstMapped(
+        RegExp(r".*/(RELAY([0-9]+))/update/accepted"),
+        (match) => '${match[2]}');
+
+    expect(relayId, "123");
   });
 }

@@ -32,12 +32,27 @@ class ShadowRelayModel {
     if (listeners == null) {
       listeners = [listener];
       _relayStateListeners[relayId] = listeners;
-      final topic = '\$aws/things/${_deviceId}/shadow/name/RELAY${relayId}/get';
-      _client.subscribe('${topic}/accepted', MqttQos.atLeastOnce);
-      _client.subscribe('${topic}/rejected', MqttQos.atLeastOnce);
+
+      // Subscribe for updates.
+      final updateTopic =
+          '\$aws/things/${_deviceId}/shadow/name/RELAY${relayId}/update';
+      _client.subscribe('${updateTopic}/accepted', MqttQos.atLeastOnce);
+      _client.subscribe('${updateTopic}/rejected', MqttQos.atLeastOnce);
+
+      // Get the initial state
+      final getTopic =
+          '\$aws/things/${_deviceId}/shadow/name/RELAY${relayId}/get';
+      _client.subscribe('${getTopic}/accepted', MqttQos.atLeastOnce);
+      _client.subscribe('${getTopic}/rejected', MqttQos.atLeastOnce);
       final builder = MqttClientPayloadBuilder();
       builder.addString('{}');
-      _client.publishMessage(topic, MqttQos.atLeastOnce, builder.payload!);
+
+      // Seem to need some minimal delay between subscribing and then publishing,
+      // otherwise we don't get the message.
+      Future.delayed(const Duration(milliseconds: 500)).then((_) => {
+            _client.publishMessage(
+                getTopic, MqttQos.atLeastOnce, builder.payload!)
+          });
     }
     listeners.add(listener);
   }
@@ -96,7 +111,7 @@ class ShadowRelayModel {
       context.setAlpnProtocols(["x-amzn-mqtt-ca"], false);
 
       _client.securityContext = context;
-      _client.logging(on: true);
+      _client.logging(on: false);
       _client.keepAlivePeriod = 20;
       _client.port = 443;
       _client.secure = true;
@@ -161,7 +176,6 @@ class ShadowRelayModel {
 
   void onData(List<MqttReceivedMessage<MqttMessage>> mqttReceivedMessages) {
     final topic = mqttReceivedMessages[0].topic;
-    print(' ************** topic = ${topic}');
     final mqttPublishMessage =
         mqttReceivedMessages[0].payload as MqttPublishMessage;
     if (topic == _deviceLoggingTopic) {
@@ -170,6 +184,22 @@ class ShadowRelayModel {
     }
     // TODO process gets, updates etc etc differently because each topic
     // should have different format messages.
+    final getTopicRE = RegExp(r"/get/accepted");
+    var matches = getTopicRE.firstMatch(topic);
+    if (matches != null) {
+      _onGetStateMessage(mqttPublishMessage);
+      return;
+    }
+
+    final updateAcceptedTopicRE = RegExp(r".*/(RELAY[0-9]+)/update/accepted");
+    matches = updateAcceptedTopicRE.firstMatch(topic);
+    if (matches != null) {
+      final relayId = topic.replaceFirstMapped(
+          RegExp(r".*/(RELAY([0-9]+))/update/accepted"),
+          (match) => '${match[2]}');
+      _onUpdateStateMessage(int.parse(relayId), mqttPublishMessage);
+      return;
+    }
 
     String json = utf8.decode(mqttPublishMessage.payload.message);
     print('json = ${json}');
@@ -197,16 +227,27 @@ class ShadowRelayModel {
 
   void _onLogging(MqttPublishMessage mqttPublishMessage) {
     String json = utf8.decode(mqttPublishMessage.payload.message);
-    print('Logging Message: ${json}');
+    // print('Logging Message: ${json}');
   }
 
-  void _onUpdateStateMessage(MqttPublishMessage mqttPublishMessage) {
-    String json = utf8.decode(mqttPublishMessage.payload.message);
-    print('Logging Message: ${json}');
+  void _onUpdateStateMessage(
+      int relayId, MqttPublishMessage mqttPublishMessage) {
+    try {
+      String json = utf8.decode(mqttPublishMessage.payload.message);
+      ReportedState state = ReportedState.fromJson(jsonDecode(json));
+      print(
+          'State reported for relay ${relayId} ${state.reported.openClosed.open_closed}');
+      final openClosed = state.reported.openClosed.open_closed == "open";
+      _relayStateListeners[relayId]?.forEach((relayStateListener) {
+        relayStateListener(openClosed);
+      });
+    } catch (e) {
+      print('Not a ReportedState: ${e}');
+    }
   }
 
   void _onGetStateMessage(MqttPublishMessage mqttPublishMessage) {
     String json = utf8.decode(mqttPublishMessage.payload.message);
-    print('Logging Message: ${json}');
+    print('Get State Message: ${json}');
   }
 }
