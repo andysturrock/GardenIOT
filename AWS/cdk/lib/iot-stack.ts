@@ -5,6 +5,7 @@ import * as iot from 'aws-cdk-lib/aws-iot';
 import * as iot_alpha from '@aws-cdk/aws-iot-alpha';
 import * as actions from '@aws-cdk/aws-iot-actions-alpha';
 import { getEnv } from './common';
+import { CfnPolicyProps } from 'aws-cdk-lib/aws-iot';
 
 export class IOTStack extends Stack {
   constructor(scope: Construct, id: string, props?: StackProps) {
@@ -12,22 +13,20 @@ export class IOTStack extends Stack {
 
     const clientId = getEnv('CLIENT_ID', false)!;
     const loggingTopic = `${clientId}/logging`;
-    const certificateArn = getEnv('CERT_ARN', false)!;
-    // Note we are not using an interpolated string in this next statement.
-    // The string "${iot:Connection.Thing.ThingName}" (ie with the $ sign and {}) is what we actually
-    // want to set in the policy.  That means "anything registered as a thing in IOT core".
-    const thingShadowUpdateTopic = '$aws/things/${iot:Connection.Thing.ThingName}/shadow/name/*/update';
+    const deviceCertificateArn = getEnv('DEVICE_CERT_ARN', false)!;
+    const mobileAppCertificateArn = getEnv('MOBILE_APP_CERT_ARN', false)!;
+    const thingShadowUpdateTopic = `$aws/things/${clientId}/shadow/name/*/update`;
     const thingShadowUpdateAcceptedTopic = `${thingShadowUpdateTopic}/accepted`;
     const thingShadowUpdateRejectedTopic = `${thingShadowUpdateTopic}/rejected`;
     const thingShadowUpdateDeltaTopic = `${thingShadowUpdateTopic}/delta`;
     const thingShadowUpdateDocumentsTopic = `${thingShadowUpdateTopic}/documents`;
-    const thingShadowGetTopic = '$aws/things/${iot:Connection.Thing.ThingName}/shadow/name/*/get';
-    const thingShadowGetAcceptedTopic = '$aws/things/${iot:Connection.Thing.ThingName}/shadow/name/*/get/accepted';
-    const thingShadowGetRejectedTopic = '$aws/things/${iot:Connection.Thing.ThingName}/shadow/name/*/get/rejected';
+    const thingShadowGetTopic = `$aws/things/${clientId}/shadow/name/*/get`;
+    const thingShadowGetAcceptedTopic = `${thingShadowGetTopic}/accepted`;
+    const thingShadowGetRejectedTopic = `${thingShadowGetTopic}/rejected`;
     
 
     const logGroup = new logs.LogGroup(this, 'StatusGroup', {
-      logGroupName: 'Status'
+      logGroupName: 'Status',
     });
 
     new iot_alpha.TopicRule(this, 'LoggingTopicRule', {
@@ -37,99 +36,226 @@ export class IOTStack extends Stack {
       actions: [new actions.CloudWatchLogsAction(logGroup)],
     });
 
-    const cfnThing = new iot.CfnThing(this, 'CfnThing', {
+    const deviceThing = new iot.CfnThing(this, 'DeviceThing', {
       thingName: `${clientId}`,
     });
 
-    const policyDocument1 = {
+    // TODO - for now create a thing for the mobile app and use it for permissions etc.
+    // Should replace with AWS Cognito identity for the user.
+    const mobileAppThing = new iot.CfnThing(this, 'MobileAppThing', {
+      thingName: 'mobile-app',
+    });
+
+    const devicePolicyProps: Array<CfnPolicyProps> = [];
+    const devicePublishPolicyDocument = {
       "Version": "2012-10-17",
       "Statement": [
         {
           "Effect": "Allow",
           "Action": [
             "iot:Publish",
-            "iot:Receive",
             "iot:RetainPublish"
           ],
           "Resource": [
-            // As above, note quoted $ to use $ sign in the policy.
-            `arn:aws:iot:${this.region}:${this.account}:topic/\${iot:Connection.Thing.ThingName}/logging`,
+            `arn:aws:iot:${this.region}:${this.account}:topic/${clientId}/logging`,
             `arn:aws:iot:${this.region}:${this.account}:topic/${thingShadowUpdateTopic}`,
-            `arn:aws:iot:${this.region}:${this.account}:topic/${thingShadowUpdateAcceptedTopic}`,
-            `arn:aws:iot:${this.region}:${this.account}:topic/${thingShadowUpdateRejectedTopic}`,
-            `arn:aws:iot:${this.region}:${this.account}:topic/${thingShadowUpdateDeltaTopic}`,
-            `arn:aws:iot:${this.region}:${this.account}:topic/${thingShadowUpdateDocumentsTopic}`,
-            `arn:aws:iot:${this.region}:${this.account}:topic/${thingShadowGetTopic}`,
-            `arn:aws:iot:${this.region}:${this.account}:topic/${thingShadowGetAcceptedTopic}`,
-            `arn:aws:iot:${this.region}:${this.account}:topic/${thingShadowGetRejectedTopic}`,
-            
           ]
         }
       ]
-    }
-    const policyDocument2 = {
+    };
+    devicePolicyProps.push( {
+      policyDocument: devicePublishPolicyDocument,
+      policyName: "DevicePublishPolicy"
+    });
+    const deviceReceivePolicyDocument = {
       "Version": "2012-10-17",
       "Statement": [
         {
           "Effect": "Allow",
-          "Action": "iot:Subscribe",
+          "Action": [
+            "iot:Receive"
+          ],
           "Resource": [
-            // As above note quoted $
-            `arn:aws:iot:${this.region}:${this.account}:topicfilter/\${iot:Connection.Thing.ThingName}/logging`,
-            `arn:aws:iot:${this.region}:${this.account}:topicfilter/${thingShadowUpdateTopic}`,
+            `arn:aws:iot:${this.region}:${this.account}:topic/${thingShadowUpdateAcceptedTopic}`,
+            `arn:aws:iot:${this.region}:${this.account}:topic/${thingShadowUpdateRejectedTopic}`,
+            `arn:aws:iot:${this.region}:${this.account}:topic/${thingShadowUpdateDeltaTopic}`,
+            `arn:aws:iot:${this.region}:${this.account}:topic/${thingShadowUpdateDocumentsTopic}`,
+          ]
+        }
+      ]
+    };
+    devicePolicyProps.push( {
+      policyDocument: deviceReceivePolicyDocument,
+      policyName: "DeviceReceivePolicy"
+    });
+    const deviceSubscribePolicyDocument = {
+      "Version": "2012-10-17",
+      "Statement": [
+        {
+          "Effect": "Allow",
+          "Action": [
+            "iot:Subscribe"
+          ],
+          "Resource": [
             `arn:aws:iot:${this.region}:${this.account}:topicfilter/${thingShadowUpdateAcceptedTopic}`,
             `arn:aws:iot:${this.region}:${this.account}:topicfilter/${thingShadowUpdateRejectedTopic}`,
             `arn:aws:iot:${this.region}:${this.account}:topicfilter/${thingShadowUpdateDeltaTopic}`,
             `arn:aws:iot:${this.region}:${this.account}:topicfilter/${thingShadowUpdateDocumentsTopic}`,
-            `arn:aws:iot:${this.region}:${this.account}:topicfilter/${thingShadowGetTopic}`,
-            `arn:aws:iot:${this.region}:${this.account}:topicfilter/${thingShadowGetAcceptedTopic}`,
-            `arn:aws:iot:${this.region}:${this.account}:topicfilter/${thingShadowGetRejectedTopic}`,
-
           ]
         }
       ]
-    }
-    const policyDocument3 = {
+    };
+    devicePolicyProps.push( {
+      policyDocument: deviceSubscribePolicyDocument,
+      policyName: "DeviceSubscribePolicy"
+    });
+    const deviceConnectPolicyDocument = {
       "Version": "2012-10-17",
       "Statement": [
         {
           "Effect": "Allow",
           "Action": "iot:Connect",
           "Resource": [
-            // As above note quoted $
-            `arn:aws:iot:${this.region}:${this.account}:client/\${iot:Connection.Thing.ThingName}`
+            `arn:aws:iot:${this.region}:${this.account}:client/${clientId}`
+          ]
+        }
+      ]
+    };
+    devicePolicyProps.push( {
+      policyDocument: deviceConnectPolicyDocument,
+      policyName: "DeviceConnectPolicy"
+    });
+
+    const mobileAppPolicyProps: Array<CfnPolicyProps> = [];
+    const mobileAppPublishPolicyDocument = {
+      "Version": "2012-10-17",
+      "Statement": [
+        {
+          "Effect": "Allow",
+          "Action": [
+            "iot:Publish",
+            "iot:RetainPublish"
+          ],
+          "Resource": [
+            `arn:aws:iot:${this.region}:${this.account}:topic/${thingShadowGetTopic}`,
+            `arn:aws:iot:${this.region}:${this.account}:topic/${thingShadowUpdateTopic}`,
+          ]
+        }
+      ]
+    };
+    mobileAppPolicyProps.push( {
+      policyDocument: mobileAppPublishPolicyDocument,
+      policyName: "MobileAppPublishPolicy"
+    });
+    const mobileAppReceivePolicyDocument = {
+      "Version": "2012-10-17",
+      "Statement": [
+        {
+          "Effect": "Allow",
+          "Action": [
+            "iot:Receive"
+          ],
+          "Resource": [
+            `arn:aws:iot:${this.region}:${this.account}:topic/${clientId}/logging`,
+            `arn:aws:iot:${this.region}:${this.account}:topic/${thingShadowUpdateAcceptedTopic}`,
+            `arn:aws:iot:${this.region}:${this.account}:topic/${thingShadowUpdateRejectedTopic}`,
+            `arn:aws:iot:${this.region}:${this.account}:topic/${thingShadowUpdateDeltaTopic}`,
+            `arn:aws:iot:${this.region}:${this.account}:topic/${thingShadowUpdateDocumentsTopic}`,
+            `arn:aws:iot:${this.region}:${this.account}:topic/${thingShadowGetAcceptedTopic}`,
+            `arn:aws:iot:${this.region}:${this.account}:topic/${thingShadowGetRejectedTopic}`,
+          ]
+        }
+      ]
+    };
+    mobileAppPolicyProps.push( {
+      policyDocument: mobileAppReceivePolicyDocument,
+      policyName: "MobileAppReceivePolicy"
+    });
+    const mobileAppSubscribePolicyDocument = {
+      "Version": "2012-10-17",
+      "Statement": [
+        {
+          "Effect": "Allow",
+          "Action": [
+            "iot:Subscribe"
+          ],
+          "Resource": [
+            `arn:aws:iot:${this.region}:${this.account}:topicfilter/${clientId}/logging`,
+            `arn:aws:iot:${this.region}:${this.account}:topicfilter/${thingShadowUpdateAcceptedTopic}`,
+            `arn:aws:iot:${this.region}:${this.account}:topicfilter/${thingShadowUpdateRejectedTopic}`,
+            `arn:aws:iot:${this.region}:${this.account}:topicfilter/${thingShadowUpdateDeltaTopic}`,
+            `arn:aws:iot:${this.region}:${this.account}:topicfilter/${thingShadowUpdateDocumentsTopic}`,
+            `arn:aws:iot:${this.region}:${this.account}:topicfilter/${thingShadowGetAcceptedTopic}`,
+            `arn:aws:iot:${this.region}:${this.account}:topicfilter/${thingShadowGetRejectedTopic}`,
+          ]
+        }
+      ]
+    };
+    mobileAppPolicyProps.push( {
+      policyDocument: mobileAppSubscribePolicyDocument,
+      policyName: "MobileAppSubscribePolicy"
+    });
+    const mobileAppConnectPolicyDocument = {
+      "Version": "2012-10-17",
+      "Statement": [
+        {
+          "Effect": "Allow",
+          "Action": "iot:Connect",
+          "Resource": [
+            `arn:aws:iot:${this.region}:${this.account}:client/mobile-app`
           ]
         }
       ]
     }
-    const policyDocuments = [policyDocument1, policyDocument2, policyDocument3];
+    mobileAppPolicyProps.push( {
+      policyDocument: mobileAppConnectPolicyDocument,
+      policyName: "MobileAppConnectPolicy"
+    });
 
-    let index = 0;
-    policyDocuments.forEach((policyDocument) => {
-      ++index;
-      const cfnPolicy = new iot.CfnPolicy(this, `CfnPolicy_${index}`, {
-        policyDocument: policyDocument,
-        policyName: `GardenIOTPolicy_${index}`,
-      });
+    devicePolicyProps.forEach((policyProps) => {
+      const cfnPolicy = new iot.CfnPolicy(this, `CfnPolicy_device_${policyProps.policyName}`, policyProps);
 
       const cfnPolicyPrincipalAttachment = new iot.CfnPolicyPrincipalAttachment(this,
-        `CfnPolicyPrincipalAttachment_${index}`, {
+        `CfnPolicyPrincipalAttachment_device_${policyProps.policyName}`, {
           policyName: cfnPolicy.policyName!.toString(),
-          principal: certificateArn
+          principal: deviceCertificateArn
         }
       );
 
       cfnPolicyPrincipalAttachment.addDependsOn(cfnPolicy);
 
       const cfnThingPrincipalAttachment = new iot.CfnThingPrincipalAttachment(this,
-        `CfnThingPrincipalAttachment_${index}`,
+        `CfnThingPrincipalAttachment_device_${policyProps.policyName}`,
         {
-          thingName: cfnThing.thingName!.toString(),
-          principal: certificateArn
+          thingName: deviceThing.thingName!.toString(),
+          principal: deviceCertificateArn
         }
       );
 
-      cfnThingPrincipalAttachment.addDependsOn(cfnThing);
+      cfnThingPrincipalAttachment.addDependsOn(deviceThing);
+    });
+
+    mobileAppPolicyProps.forEach((policyProps) => {
+      const cfnPolicy = new iot.CfnPolicy(this, `CfnPolicy_mobile_app_${policyProps.policyName}`, policyProps);
+
+      const cfnPolicyPrincipalAttachment = new iot.CfnPolicyPrincipalAttachment(this,
+        `CfnPolicyPrincipalAttachment_mobile_app_${policyProps.policyName}`, {
+          policyName: cfnPolicy.policyName!.toString(),
+          principal: mobileAppCertificateArn
+        }
+      );
+
+      cfnPolicyPrincipalAttachment.addDependsOn(cfnPolicy);
+
+      const cfnThingPrincipalAttachment = new iot.CfnThingPrincipalAttachment(this,
+        `CfnThingPrincipalAttachment_mobile_app_${policyProps.policyName}`,
+        {
+          thingName: mobileAppThing.thingName!.toString(),
+          principal: mobileAppCertificateArn
+        }
+      );
+
+      cfnThingPrincipalAttachment.addDependsOn(mobileAppThing);
     });
   }
 }
