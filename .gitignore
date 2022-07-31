@@ -120,3 +120,6 @@ cdk.out/
 
 # Arduino etc
 arduino_secrets.h
+
+# Flutter certs
+**/assets/certs/*

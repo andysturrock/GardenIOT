@@ -2,9 +2,9 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:garden_iot/serialization/relay_state.dart';
+import 'package:garden_iot/serialization/desired_state.dart';
+import 'package:garden_iot/serialization/reported_state.dart';
 import 'package:mqtt_client/mqtt_client.dart';
 import 'package:mqtt_client/mqtt_server_client.dart';
 import 'package:flutter/services.dart';
@@ -182,17 +182,8 @@ class ShadowRelayModel {
       _onLogging(mqttPublishMessage);
       return;
     }
-    // TODO process gets, updates etc etc differently because each topic
-    // should have different format messages.
-    final getTopicRE = RegExp(r"/get/accepted");
-    var matches = getTopicRE.firstMatch(topic);
-    if (matches != null) {
-      _onGetStateMessage(mqttPublishMessage);
-      return;
-    }
-
     final updateAcceptedTopicRE = RegExp(r".*/(RELAY[0-9]+)/update/accepted");
-    matches = updateAcceptedTopicRE.firstMatch(topic);
+    var matches = updateAcceptedTopicRE.firstMatch(topic);
     if (matches != null) {
       final relayId = topic.replaceFirstMapped(
           RegExp(r".*/(RELAY([0-9]+))/update/accepted"),
@@ -201,20 +192,17 @@ class ShadowRelayModel {
       return;
     }
 
+    final getAcceptedTopicRE = RegExp(r".*/(RELAY[0-9]+)/get/accepted");
+    matches = getAcceptedTopicRE.firstMatch(topic);
+    if (matches != null) {
+      final relayId = topic.replaceFirstMapped(
+          RegExp(r".*/(RELAY([0-9]+))/get/accepted"), (match) => '${match[2]}');
+      _onGetStateMessage(int.parse(relayId), mqttPublishMessage);
+      return;
+    }
+
     String json = utf8.decode(mqttPublishMessage.payload.message);
-    print('json = ${json}');
-    try {
-      ReportedState state = ReportedState.fromJson(jsonDecode(json));
-      print('reported open_closed = ${state.reported.openClosed.open_closed}');
-    } catch (e) {
-      print('Not a ReportedState: ${e}');
-    }
-    try {
-      DesiredState state = DesiredState.fromJson(jsonDecode(json));
-      print('desired open_closed = ${state.desired.openClosed.open_closed}');
-    } catch (e) {
-      print('Not a DesiredState: ${e}');
-    }
+    print('Unexpected message: ${json}');
   }
 
   void onError(Object error) {
@@ -246,8 +234,19 @@ class ShadowRelayModel {
     }
   }
 
-  void _onGetStateMessage(MqttPublishMessage mqttPublishMessage) {
-    String json = utf8.decode(mqttPublishMessage.payload.message);
-    print('Get State Message: ${json}');
+  void _onGetStateMessage(int relayId, MqttPublishMessage mqttPublishMessage) {
+    try {
+      String json = utf8.decode(mqttPublishMessage.payload.message);
+      print('Get state: ${json}');
+      ReportedState state = ReportedState.fromJson(jsonDecode(json));
+      print(
+          'State reported for relay ${relayId} ${state.reported.openClosed.open_closed}');
+      final openClosed = state.reported.openClosed.open_closed == "open";
+      _relayStateListeners[relayId]?.forEach((relayStateListener) {
+        relayStateListener(openClosed);
+      });
+    } catch (e) {
+      print('Not a ReportedState: ${e}');
+    }
   }
 }

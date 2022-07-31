@@ -1,7 +1,11 @@
 import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:garden_iot/serialization/relay_state.dart';
+import 'package:garden_iot/serialization/desired.dart';
+import 'package:garden_iot/serialization/desired_state.dart';
+import 'package:garden_iot/serialization/open_closed.dart';
+import 'package:garden_iot/serialization/reported.dart';
+import 'package:garden_iot/serialization/reported_state.dart';
 
 void main() {
   test('OpenClosed deserialises correctly', () {
