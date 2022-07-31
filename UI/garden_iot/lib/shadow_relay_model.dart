@@ -3,47 +3,41 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
 import 'package:garden_iot/serialization/relay_state.dart';
 import 'package:mqtt_client/mqtt_client.dart';
 import 'package:mqtt_client/mqtt_server_client.dart';
 import 'package:flutter/services.dart';
 
-class ShadowRelay {
-  final int relay_id;
-  final bool open;
-
-  ShadowRelay(this.relay_id, this.open);
-
-  @override
-  String toString() {
-    return '"relay_id": ${relay_id}, "open": ${open}';
-  }
-}
-
 typedef RelayStateCallback = void Function(bool relayIsOpen);
 
 class ShadowRelayModel {
-  // TODO get this from build
+  // TODO get these from build
   final _client =
       MqttServerClient('a2cy4c2yyuss64-ats.iot.eu-west-1.amazonaws.com', '');
-  // TODO get this from build
-  final _clientId = "linux-vpc-3";
+  final _clientId = "mobile-app";
+  final _deviceId = "linux-vpc-3";
+  final _deviceLoggingTopic = 'linux-vpc-3/logging';
 
   bool _isConnected = false;
   List<VoidCallback> _onConnectedCallbacks = [];
   List<VoidCallback> _onDisconnectedCallbacks = [];
   final _relayStateListeners = new Map<int, List<RelayStateCallback>>();
 
-  ShadowRelayModel() {
-    _initState();
-  }
+  ShadowRelayModel() {}
 
   /// Register a closure to be called when the relay changes state.
   void addRelayStateListener(int relayId, RelayStateCallback listener) {
     var listeners = _relayStateListeners[relayId];
     if (listeners == null) {
-      listeners = [];
+      listeners = [listener];
       _relayStateListeners[relayId] = listeners;
+      final topic = '\$aws/things/${_deviceId}/shadow/name/RELAY${relayId}/get';
+      _client.subscribe('${topic}/accepted', MqttQos.atLeastOnce);
+      _client.subscribe('${topic}/rejected', MqttQos.atLeastOnce);
+      final builder = MqttClientPayloadBuilder();
+      builder.addString('{}');
+      _client.publishMessage(topic, MqttQos.atLeastOnce, builder.payload!);
     }
     listeners.add(listener);
   }
@@ -56,7 +50,14 @@ class ShadowRelayModel {
     if (listeners == null) {
       return false;
     }
-    return listeners.remove(listener);
+    bool wasRegistered = listeners.remove(listener);
+    listeners = _relayStateListeners[relayId];
+    if (listeners == null || listeners.length == 0) {
+      final topic = '\$aws/things/${_clientId}/shadow/name/RELAY${relayId}/get';
+      _client.unsubscribe('${topic}/accepted');
+      _client.unsubscribe('${topic}/rejected');
+    }
+    return wasRegistered;
   }
 
   void addOnConnectedCallback(VoidCallback onConnectedCallback) =>
@@ -71,53 +72,60 @@ class ShadowRelayModel {
 
   bool get isConnected => _isConnected;
 
-  void _initState() async {
-    await _mqttConnect();
+  Future<bool> mqttDisconnect() async {
+    _client.disconnect();
+    _isConnected = false;
+    return true;
   }
 
-  Future<void> _mqttConnect() async {
-    ByteData rootCA = await rootBundle.load('assets/certs/AmazonRootCA1.pem');
-    ByteData deviceCert =
-        await rootBundle.load('assets/certs/cert-certificate.pem.crt');
-    ByteData privateKey =
-        await rootBundle.load('assets/certs/cert-private.pem.key');
-
-    SecurityContext context = SecurityContext.defaultContext;
-    context.setClientAuthoritiesBytes(rootCA.buffer.asUint8List());
-    context.useCertificateChainBytes(deviceCert.buffer.asUint8List());
-    context.usePrivateKeyBytes(privateKey.buffer.asUint8List());
-    context.setAlpnProtocols(["x-amzn-mqtt-ca"], false);
-
-    _client.securityContext = context;
-    _client.logging(on: true);
-    _client.keepAlivePeriod = 20;
-    _client.port = 443;
-    _client.secure = true;
-    _client.onConnected = _onConnected;
-    _client.onDisconnected = _onDisconnected;
-    _client.onSubscribed = onSubscribed;
-    _client.onSubscribeFail = onSubscribeFail;
-    _client.onUnsubscribed = onUnsubscribed;
-    _client.pongCallback = pong;
-
-    final MqttConnectMessage connMess =
-        MqttConnectMessage().withClientIdentifier(_clientId).startClean();
-    _client.connectionMessage = connMess;
-
+  Future<bool> mqttConnect(AssetBundle bundle) async {
     try {
-      await _client.connect();
+      if (_isConnected) {
+        return true;
+      }
+      ByteData rootCA = await bundle.load('assets/certs/AmazonRootCA1.pem');
+      ByteData deviceCert = await bundle.load(
+          'assets/certs/bb381ae692c9965e9996ab013d428e49a05d1ac15eacc08ae555e3eb414014aa-certificate.pem.crt');
+      ByteData privateKey = await bundle.load(
+          'assets/certs/bb381ae692c9965e9996ab013d428e49a05d1ac15eacc08ae555e3eb414014aa-private.pem.key');
+
+      SecurityContext context = SecurityContext.defaultContext;
+      context.setClientAuthoritiesBytes(rootCA.buffer.asUint8List());
+      context.useCertificateChainBytes(deviceCert.buffer.asUint8List());
+      context.usePrivateKeyBytes(privateKey.buffer.asUint8List());
+      context.setAlpnProtocols(["x-amzn-mqtt-ca"], false);
+
+      _client.securityContext = context;
+      _client.logging(on: true);
+      _client.keepAlivePeriod = 20;
+      _client.port = 443;
+      _client.secure = true;
+      _client.onConnected = _onConnected;
+      _client.onDisconnected = _onDisconnected;
+      _client.onSubscribed = onSubscribed;
+      _client.onSubscribeFail = onSubscribeFail;
+      _client.onUnsubscribed = onUnsubscribed;
+      _client.pongCallback = pong;
+
+      final MqttConnectMessage connMess =
+          MqttConnectMessage().withClientIdentifier(_clientId).startClean();
+      _client.connectionMessage = connMess;
+
+      final connStatus = await _client.connect();
       if (_client.connectionStatus!.state == MqttConnectionState.connected) {
-        print("Connected");
+        print('Connected : ${connStatus}');
       } else {
-        print("Failed to connect: ${_client.connectionStatus}");
+        print('Failed to connect:\n${_client.connectionStatus}\n${connStatus}');
+        return false;
       }
 
-      const topic = 'linux-vpc-3/logging';
-      _client.subscribe(topic, MqttQos.atLeastOnce);
-
+      _client.subscribe(_deviceLoggingTopic, MqttQos.atLeastOnce);
       _client.updates?.listen(onData, onError: onError, onDone: onDone);
+
+      return true;
     } catch (exception, stacktrace) {
       print('Failed to connect: ${exception}, ${stacktrace}');
+      return false;
     }
   }
 
@@ -152,8 +160,18 @@ class ShadowRelayModel {
   }
 
   void onData(List<MqttReceivedMessage<MqttMessage>> mqttReceivedMessages) {
-    final recMess = mqttReceivedMessages[0].payload as MqttPublishMessage;
-    String json = utf8.decode(recMess.payload.message);
+    final topic = mqttReceivedMessages[0].topic;
+    print(' ************** topic = ${topic}');
+    final mqttPublishMessage =
+        mqttReceivedMessages[0].payload as MqttPublishMessage;
+    if (topic == _deviceLoggingTopic) {
+      _onLogging(mqttPublishMessage);
+      return;
+    }
+    // TODO process gets, updates etc etc differently because each topic
+    // should have different format messages.
+
+    String json = utf8.decode(mqttPublishMessage.payload.message);
     print('json = ${json}');
     try {
       ReportedState state = ReportedState.fromJson(jsonDecode(json));
@@ -169,7 +187,26 @@ class ShadowRelayModel {
     }
   }
 
-  void onError(Object error) {}
+  void onError(Object error) {
+    print('onError: ${error}');
+  }
 
-  void onDone() {}
+  void onDone() {
+    print('onDone');
+  }
+
+  void _onLogging(MqttPublishMessage mqttPublishMessage) {
+    String json = utf8.decode(mqttPublishMessage.payload.message);
+    print('Logging Message: ${json}');
+  }
+
+  void _onUpdateStateMessage(MqttPublishMessage mqttPublishMessage) {
+    String json = utf8.decode(mqttPublishMessage.payload.message);
+    print('Logging Message: ${json}');
+  }
+
+  void _onGetStateMessage(MqttPublishMessage mqttPublishMessage) {
+    String json = utf8.decode(mqttPublishMessage.payload.message);
+    print('Logging Message: ${json}');
+  }
 }
