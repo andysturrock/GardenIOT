@@ -1,18 +1,13 @@
-import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:garden_iot/shadow_relay_model.dart';
-import 'package:mockito/annotations.dart';
-import 'package:mockito/mockito.dart';
 
 class TestAssetBundle extends AssetBundle {
   @override
   Future<ByteData> load(String key) async {
-    Directory cwd = Directory.current;
-    print('cwd= ${cwd}');
     File file = new File(key);
     Uint8List bytes = await file.readAsBytes();
     return ByteData.view(bytes.buffer);
@@ -35,11 +30,11 @@ void onDisconnected() {
 }
 
 void stateChanged1(bool relayIsOpen) {
-  print('stateChanged1 relay open? ${relayIsOpen}');
+  print('stateChanged1 relay open? $relayIsOpen');
 }
 
 void stateChanged2(bool relayIsOpen) {
-  print('stateChanged2 relay open? ${relayIsOpen}');
+  print('stateChanged2 relay open? $relayIsOpen');
 }
 
 void main() {

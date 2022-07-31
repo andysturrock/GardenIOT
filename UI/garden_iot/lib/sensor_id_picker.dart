@@ -11,7 +11,7 @@ class SensorIdPicker extends StatefulWidget {
       {required this.minValue,
       required this.maxValue,
       required this.initialValue,
-      this.onChanged}) {}
+      this.onChanged});
 
   @override
   _SensorIdPickerState createState() => _SensorIdPickerState(initialValue);
@@ -20,7 +20,7 @@ class SensorIdPicker extends StatefulWidget {
 class _SensorIdPickerState extends State<SensorIdPicker> {
   int _currentValue;
 
-  _SensorIdPickerState(int startValue) : _currentValue = startValue {}
+  _SensorIdPickerState(int startValue) : _currentValue = startValue;
 
   @override
   Widget build(BuildContext context) {

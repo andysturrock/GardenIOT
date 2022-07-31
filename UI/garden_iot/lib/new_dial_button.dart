@@ -4,7 +4,7 @@ import 'package:garden_iot/dial_editor.dart';
 class NewDialButton extends StatelessWidget {
   final void Function(DialAttributes)? onPressed;
 
-  NewDialButton({void Function(DialAttributes)? this.onPressed}) {}
+  NewDialButton({this.onPressed});
 
   Future<DialAttributes?> _displayDialEditorDialog(BuildContext context) async {
     return await showDialog(

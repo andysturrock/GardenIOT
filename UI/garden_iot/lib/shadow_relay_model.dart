@@ -3,7 +3,6 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
-import 'package:garden_iot/serialization/desired_state.dart';
 import 'package:garden_iot/serialization/reported_state.dart';
 import 'package:mqtt_client/mqtt_client.dart';
 import 'package:mqtt_client/mqtt_server_client.dart';
@@ -24,7 +23,7 @@ class ShadowRelayModel {
   List<VoidCallback> _onDisconnectedCallbacks = [];
   final _relayStateListeners = new Map<int, List<RelayStateCallback>>();
 
-  ShadowRelayModel() {}
+  ShadowRelayModel();
 
   /// Register a closure to be called when the relay changes state.
   void addRelayStateListener(int relayId, RelayStateCallback listener) {
@@ -35,15 +34,14 @@ class ShadowRelayModel {
 
       // Subscribe for updates.
       final updateTopic =
-          '\$aws/things/${_deviceId}/shadow/name/RELAY${relayId}/update';
-      _client.subscribe('${updateTopic}/accepted', MqttQos.atLeastOnce);
-      _client.subscribe('${updateTopic}/rejected', MqttQos.atLeastOnce);
+          '\$aws/things/$_deviceId/shadow/name/RELAY$relayId/update';
+      _client.subscribe('$updateTopic/accepted', MqttQos.atLeastOnce);
+      _client.subscribe('$updateTopic/rejected', MqttQos.atLeastOnce);
 
       // Get the initial state
-      final getTopic =
-          '\$aws/things/${_deviceId}/shadow/name/RELAY${relayId}/get';
-      _client.subscribe('${getTopic}/accepted', MqttQos.atLeastOnce);
-      _client.subscribe('${getTopic}/rejected', MqttQos.atLeastOnce);
+      final getTopic = '\$aws/things/$_deviceId/shadow/name/RELAY$relayId/get';
+      _client.subscribe('$getTopic/accepted', MqttQos.atLeastOnce);
+      _client.subscribe('$getTopic/rejected', MqttQos.atLeastOnce);
       final builder = MqttClientPayloadBuilder();
       builder.addString('{}');
 
@@ -68,9 +66,9 @@ class ShadowRelayModel {
     bool wasRegistered = listeners.remove(listener);
     listeners = _relayStateListeners[relayId];
     if (listeners == null || listeners.length == 0) {
-      final topic = '\$aws/things/${_clientId}/shadow/name/RELAY${relayId}/get';
-      _client.unsubscribe('${topic}/accepted');
-      _client.unsubscribe('${topic}/rejected');
+      final topic = '\$aws/things/$_clientId/shadow/name/RELAY$relayId/get';
+      _client.unsubscribe('$topic/accepted');
+      _client.unsubscribe('$topic/rejected');
     }
     return wasRegistered;
   }
@@ -128,9 +126,9 @@ class ShadowRelayModel {
 
       final connStatus = await _client.connect();
       if (_client.connectionStatus!.state == MqttConnectionState.connected) {
-        print('Connected : ${connStatus}');
+        print('Connected : $connStatus');
       } else {
-        print('Failed to connect:\n${_client.connectionStatus}\n${connStatus}');
+        print('Failed to connect:\n${_client.connectionStatus}\n$connStatus');
         return false;
       }
 
@@ -139,7 +137,7 @@ class ShadowRelayModel {
 
       return true;
     } catch (exception, stacktrace) {
-      print('Failed to connect: ${exception}, ${stacktrace}');
+      print('Failed to connect: $exception, $stacktrace');
       return false;
     }
   }
@@ -149,15 +147,15 @@ class ShadowRelayModel {
   }
 
   void onSubscribed(String topic) {
-    print('Subscribed to ${topic}');
+    print('Subscribed to $topic');
   }
 
   void onSubscribeFail(String topic) {
-    print('Subscribe to ${topic} failed');
+    print('Subscribe to $topic failed');
   }
 
   void onUnsubscribed(String? topic) {
-    print('Unsubscribed from ${topic}');
+    print('Unsubscribed from $topic');
   }
 
   void _onConnected() {
@@ -202,11 +200,11 @@ class ShadowRelayModel {
     }
 
     String json = utf8.decode(mqttPublishMessage.payload.message);
-    print('Unexpected message: ${json}');
+    print('Unexpected message: $json');
   }
 
   void onError(Object error) {
-    print('onError: ${error}');
+    print('onError: $error');
   }
 
   void onDone() {
@@ -214,7 +212,7 @@ class ShadowRelayModel {
   }
 
   void _onLogging(MqttPublishMessage mqttPublishMessage) {
-    String json = utf8.decode(mqttPublishMessage.payload.message);
+    // String json = utf8.decode(mqttPublishMessage.payload.message);
     // print('Logging Message: ${json}');
   }
 
@@ -224,29 +222,29 @@ class ShadowRelayModel {
       String json = utf8.decode(mqttPublishMessage.payload.message);
       ReportedState state = ReportedState.fromJson(jsonDecode(json));
       print(
-          'State reported for relay ${relayId} ${state.reported.openClosed.open_closed}');
-      final openClosed = state.reported.openClosed.open_closed == "open";
+          'State reported for relay $relayId ${state.reported.openClosed.openClosed}');
+      final openClosed = state.reported.openClosed.openClosed == "open";
       _relayStateListeners[relayId]?.forEach((relayStateListener) {
         relayStateListener(openClosed);
       });
-    } catch (e) {
-      print('Not a ReportedState: ${e}');
+    } catch (error) {
+      print('Not a ReportedState: $error');
     }
   }
 
   void _onGetStateMessage(int relayId, MqttPublishMessage mqttPublishMessage) {
     try {
       String json = utf8.decode(mqttPublishMessage.payload.message);
-      print('Get state: ${json}');
+      print('Get state: $json');
       ReportedState state = ReportedState.fromJson(jsonDecode(json));
       print(
-          'State reported for relay ${relayId} ${state.reported.openClosed.open_closed}');
-      final openClosed = state.reported.openClosed.open_closed == "open";
+          'State reported for relay $relayId ${state.reported.openClosed.openClosed}');
+      final openClosed = state.reported.openClosed.openClosed == "open";
       _relayStateListeners[relayId]?.forEach((relayStateListener) {
         relayStateListener(openClosed);
       });
-    } catch (e) {
-      print('Not a ReportedState: ${e}');
+    } catch (error) {
+      print('Not a ReportedState: $error');
     }
   }
 }

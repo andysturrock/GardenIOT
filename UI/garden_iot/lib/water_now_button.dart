@@ -6,8 +6,7 @@ class WaterNowButton extends StatefulWidget {
   final int _relayId;
   final ShadowRelayModel _model;
 
-  WaterNowButton(
-      String this._name, int this._relayId, ShadowRelayModel this._model) {}
+  WaterNowButton(this._name, this._relayId, this._model);
 
   @override
   _WaterNowButtonState createState() => _WaterNowButtonState();

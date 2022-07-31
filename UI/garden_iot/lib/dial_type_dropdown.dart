@@ -6,8 +6,7 @@ class DialTypeDropdown extends StatefulWidget {
   final DialType initialValue;
   final ValueChanged<DialType>? onChanged;
 
-  DialTypeDropdown(
-      {required this.initialValue, ValueChanged<DialType>? this.onChanged}) {}
+  DialTypeDropdown({required this.initialValue, this.onChanged});
 
   @override
   _DialTypeDropdownState createState() => _DialTypeDropdownState(initialValue);
@@ -16,7 +15,7 @@ class DialTypeDropdown extends StatefulWidget {
 class _DialTypeDropdownState extends State<DialTypeDropdown> {
   DialType _dialType;
 
-  _DialTypeDropdownState(this._dialType) {}
+  _DialTypeDropdownState(this._dialType);
 
   @override
   Widget build(BuildContext context) {

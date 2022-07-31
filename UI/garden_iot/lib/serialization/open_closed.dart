@@ -1,19 +1,19 @@
 class OpenClosed {
-  final String open_closed;
+  final String openClosed;
 
-  OpenClosed(this.open_closed);
+  OpenClosed(this.openClosed);
 
   OpenClosed.fromJson(Map<String, dynamic> json)
-      : open_closed = json['open_closed'];
+      : openClosed = json['open_closed'];
 
-  Map<String, dynamic> toJson() => {'open_closed': open_closed};
+  Map<String, dynamic> toJson() => {'open_closed': openClosed};
 
   @override
   bool operator ==(Object other) =>
       other is OpenClosed &&
       other.runtimeType == runtimeType &&
-      other.open_closed == open_closed;
+      other.openClosed == openClosed;
 
   @override
-  int get hashCode => open_closed.hashCode;
+  int get hashCode => openClosed.hashCode;
 }
