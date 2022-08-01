@@ -32,16 +32,41 @@ class ShadowRelay extends Relay {
   }
 
   async open() {
-    await super.open();
-    await this.publishShadowUpdate('open');
+    // TODO add a timeout to change state directly in case
+    // we can't connect to the shadow.
+    await this.publishDesiredShadowUpdate('open');
   }
 
   async close() {
-    await super.close();
-    await this.publishShadowUpdate('closed');
+    // TODO add a timeout to change state directly in case
+    // we can't connect to the shadow.
+    await this.publishDesiredShadowUpdate('closed');
   }
 
-  private async publishShadowUpdate(openClosed: string) {
+  private async _open() {
+    await super.open();
+    await this.publishReportedShadowUpdate('open');
+  }
+
+  private async _close() {
+    await super.close();
+    await this.publishReportedShadowUpdate('closed');
+  }
+
+  private async publishDesiredShadowUpdate(openClosed: string) {
+    const topic = `$aws/things/${this.thingName}/shadow/name/${this.name}/update`;
+    const stateReportedDoc = 
+    {
+      "state": {
+          "desired": {
+              "open_closed": `${openClosed}`
+          }
+      }
+    };
+    await this._awsConnection.publish(topic, stateReportedDoc, mqtt.QoS.AtLeastOnce);
+  }
+
+  private async publishReportedShadowUpdate(openClosed: string) {
     const topic = `$aws/things/${this.thingName}/shadow/name/${this.name}/update`;
     const stateReportedDoc = 
     {
@@ -89,9 +114,9 @@ class ShadowRelay extends Relay {
     logger.debug(`onDelta current version = ${this.version}, delta version = ${version}`)
 
     if(decodedPayload?.state?.open_closed === 'open') {
-      await this.open();
+      await this._open();
     } else if(decodedPayload?.state?.open_closed === 'closed') {
-      await this.close();
+      await this._close();
     }
     else {
       logger.warn(`Unknown delta relay state`)
