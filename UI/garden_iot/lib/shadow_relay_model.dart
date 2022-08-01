@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:garden_iot/serialization/desired_state.dart';
 import 'package:garden_iot/serialization/reported_state.dart';
 import 'package:mqtt_client/mqtt_client.dart';
 import 'package:mqtt_client/mqtt_server_client.dart';
@@ -66,9 +67,9 @@ class ShadowRelayModel {
     bool wasRegistered = listeners.remove(listener);
     listeners = _relayStateListeners[relayId];
     if (listeners == null || listeners.length == 0) {
-      final topic = '\$aws/things/$_clientId/shadow/name/RELAY$relayId/get';
-      _client.unsubscribe('$topic/accepted');
-      _client.unsubscribe('$topic/rejected');
+      final getTopic = '\$aws/things/$_clientId/shadow/name/RELAY$relayId/get';
+      _client.unsubscribe('$getTopic/accepted');
+      _client.unsubscribe('$getTopic/rejected');
     }
     return wasRegistered;
   }
@@ -82,6 +83,23 @@ class ShadowRelayModel {
       _onDisconnectedCallbacks.add(onDisconnectedCallback);
   bool removeOnDisconnectedCallback(VoidCallback onDisconnectedCallback) =>
       _onDisconnectedCallbacks.remove(onDisconnectedCallback);
+
+  void updateState(int relayId, bool openClosed) {
+    final updateTopic =
+        '\$aws/things/$_deviceId/shadow/name/RELAY$relayId/update';
+
+    final builder = MqttClientPayloadBuilder();
+
+    final desiredStateMessage = {
+      "state": {
+        "desired": {"open_closed": openClosed ? "open" : "closed"}
+      }
+    };
+    String message = json.encode(desiredStateMessage);
+    builder.addString(message);
+
+    _client.publishMessage(updateTopic, MqttQos.atLeastOnce, builder.payload!);
+  }
 
   bool get isConnected => _isConnected;
 
@@ -115,10 +133,10 @@ class ShadowRelayModel {
       _client.secure = true;
       _client.onConnected = _onConnected;
       _client.onDisconnected = _onDisconnected;
-      _client.onSubscribed = onSubscribed;
-      _client.onSubscribeFail = onSubscribeFail;
-      _client.onUnsubscribed = onUnsubscribed;
-      _client.pongCallback = pong;
+      _client.onSubscribed = _onSubscribed;
+      _client.onSubscribeFail = _onSubscribeFail;
+      _client.onUnsubscribed = _onUnsubscribed;
+      _client.pongCallback = _pong;
 
       final MqttConnectMessage connMess =
           MqttConnectMessage().withClientIdentifier(_clientId).startClean();
@@ -142,19 +160,19 @@ class ShadowRelayModel {
     }
   }
 
-  void pong() {
+  void _pong() {
     print('Ping response callback invoked');
   }
 
-  void onSubscribed(String topic) {
+  void _onSubscribed(String topic) {
     print('Subscribed to $topic');
   }
 
-  void onSubscribeFail(String topic) {
+  void _onSubscribeFail(String topic) {
     print('Subscribe to $topic failed');
   }
 
-  void onUnsubscribed(String? topic) {
+  void _onUnsubscribed(String? topic) {
     print('Unsubscribed from $topic');
   }
 
@@ -219,16 +237,25 @@ class ShadowRelayModel {
   void _onUpdateStateMessage(
       int relayId, MqttPublishMessage mqttPublishMessage) {
     try {
-      String json = utf8.decode(mqttPublishMessage.payload.message);
-      ReportedState state = ReportedState.fromJson(jsonDecode(json));
-      print(
-          'State reported for relay $relayId ${state.reported.openClosed.openClosed}');
-      final openClosed = state.reported.openClosed.openClosed == "open";
-      _relayStateListeners[relayId]?.forEach((relayStateListener) {
-        relayStateListener(openClosed);
-      });
+      final json = jsonDecode(utf8.decode(mqttPublishMessage.payload.message));
+      var openClosed = false;
+      if (json["state"]?["reported"] != null) {
+        ReportedState state = ReportedState.fromJson(json);
+        openClosed = state.reported.openClosed.openClosed == "open";
+        print('State reported for relay $relayId $openClosed');
+        _relayStateListeners[relayId]?.forEach((relayStateListener) {
+          relayStateListener(openClosed);
+        });
+      }
+      if (json["state"]?["desired"] != null) {
+        // This is either our own desired message or from another device.
+        // Either way we can just log it for debugging purposes and ignore it.
+        DesiredState state = DesiredState.fromJson(json);
+        openClosed = state.desired.openClosed.openClosed == "open";
+        print('State desired for relay $relayId $openClosed');
+      }
     } catch (error) {
-      print('Not a ReportedState: $error');
+      print('Failed to decode updated state message: $error');
     }
   }
 

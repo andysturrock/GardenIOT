@@ -32,10 +32,8 @@ class _WaterNowButtonState extends State<WaterNowButton> {
     });
   }
 
-  Future<void> _setShadowState(int relayId, bool onOff) async {
-    // TODO, call back to the model to send to remote shadow
-    await Future.delayed(Duration(seconds: 3));
-    debugPrint('finished sending: $relayId to $onOff');
+  Future<void> _setShadowState(int relayId, bool openClosed) async {
+    widget._model.updateState(relayId, openClosed);
   }
 
   @override
@@ -47,10 +45,6 @@ class _WaterNowButtonState extends State<WaterNowButton> {
           Switch(
             value: _relayIsOpen,
             onChanged: (value) {
-              setState(() {
-                _relayIsOpen = value;
-              });
-              debugPrint('onChanged: $value');
               _setShadowState(widget._relayId, value);
             },
           ),
