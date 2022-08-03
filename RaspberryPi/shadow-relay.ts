@@ -32,51 +32,83 @@ class ShadowRelay extends Relay {
   }
 
   async open() {
-    // TODO add a timeout to change state directly in case
-    // we can't connect to the shadow.
+    // Open the relay directly.
+    // Do this rather than waiting to respond to the desired message
+    // in case our connection to AWS has failed.
+    await super.open();
+    // Update the shadow state.
+    // This will cause the relay to be opened again, but that's OK.
     await this.publishDesiredShadowUpdate('open');
   }
 
   async close() {
-    // TODO add a timeout to change state directly in case
-    // we can't connect to the shadow.
+    // Close the relay directly.
+    // Do this rather than waiting to respond to the desired message
+    // in case our connection to AWS has failed.
+    await super.close();
+    // Update the shadow state.
+    // This will cause the relay to be closed again, but that's OK.
     await this.publishDesiredShadowUpdate('closed');
   }
 
+  async emergencyClose() {
+    await super.close();
+  }
+
+  // Called in response to a desired message.
   private async _open() {
     await super.open();
     await this.publishReportedShadowUpdate('open');
   }
 
+  // Called in response to a desired message.
   private async _close() {
     await super.close();
     await this.publishReportedShadowUpdate('closed');
   }
 
   private async publishDesiredShadowUpdate(openClosed: string) {
-    const topic = `$aws/things/${this.thingName}/shadow/name/${this.name}/update`;
-    const stateReportedDoc = 
-    {
-      "state": {
-          "desired": {
-              "open_closed": `${openClosed}`
-          }
+    try {
+      const topic = `$aws/things/${this.thingName}/shadow/name/${this.name}/update`;
+      const stateReportedDoc = 
+      {
+        "state": {
+            "desired": {
+                "open_closed": `${openClosed}`
+            }
+        }
+      };
+      await this._awsConnection.publish(topic, stateReportedDoc, mqtt.QoS.AtLeastOnce);
+    }
+    catch(error) {
+      if(error instanceof Error) {
+        logger.error(`Error: ${error.stack}`);
+      } else {
+        logger.error(`Error: ${JSON.stringify(error)}`);
       }
-    };
-    await this._awsConnection.publish(topic, stateReportedDoc, mqtt.QoS.AtLeastOnce);
+    }
   }
 
   private async publishReportedShadowUpdate(openClosed: string) {
-    const topic = `$aws/things/${this.thingName}/shadow/name/${this.name}/update`;
-    const stateReportedDoc = 
-    {
-      "state": {
-          "reported": {
-              "open_closed": `${openClosed}`
-          }
+    try {
+      const topic = `$aws/things/${this.thingName}/shadow/name/${this.name}/update`;
+      const stateReportedDoc = 
+      {
+        "state": {
+            "reported": {
+                "open_closed": `${openClosed}`
+            }
+        }
+      };
+      await this._awsConnection.publish(topic, stateReportedDoc, mqtt.QoS.AtLeastOnce);
+    }
+    catch(error) {
+      if(error instanceof Error) {
+        logger.error(`Error: ${error.stack}`);
+      } else {
+        logger.error(`Error: ${JSON.stringify(error)}`);
       }
-    };
-    await this._awsConnection.publish(topic, stateReportedDoc, mqtt.QoS.AtLeastOnce);
+    }
   }
 
   private debugLog(method: string, topic: string, payload: ArrayBuffer) {
