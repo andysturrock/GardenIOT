@@ -1,4 +1,4 @@
-import getEnv from './getenv';
+import getEnv from './utils/getenv';
 import mqttLogger from './mqtt-logger';
 import { RelayId } from './relay-id';
 import SerializedRelay from './serialization/serialized-relay';

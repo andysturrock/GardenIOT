@@ -1,5 +1,5 @@
 import { iot, mqtt } from 'aws-crt';
-import getEnv from './getenv';
+import getEnv from './utils/getenv';
 
 class AWSConnection {
   private connection : mqtt.MqttClientConnection | undefined;

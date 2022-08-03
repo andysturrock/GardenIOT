@@ -1,6 +1,6 @@
 import { ILogObject, Logger as TSLogger } from 'tslog';
 import { mqtt } from 'aws-crt';
-import getEnv from './getenv';
+import getEnv from './utils/getenv';
 import AWSConnection from './aws-connection';
 import util from 'util';
 

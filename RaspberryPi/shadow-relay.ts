@@ -1,6 +1,6 @@
 import AWSConnection from './aws-connection';
 import { mqtt } from 'aws-crt';
-import getEnv from './getenv';
+import getEnv from './utils/getenv';
 import mqttLogger from './mqtt-logger';
 import Relay from './relay';
 import { RelayId } from './relay-id';
