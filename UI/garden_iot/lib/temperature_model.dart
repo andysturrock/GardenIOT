@@ -5,18 +5,18 @@ import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 
 class TemperatureReading {
-  final int sensor_id;
+  final int sensorId;
   final double temperature;
 
-  TemperatureReading(this.sensor_id, this.temperature);
+  TemperatureReading(this.sensorId, this.temperature);
 
   TemperatureReading.fromJson(Map<String, dynamic> json)
-      : sensor_id = json['sensor_id'],
+      : sensorId = json['sensor_id'],
         temperature = double.parse(json['temperature']);
 
   @override
   String toString() {
-    return '"sensor_id": ${sensor_id}, "temperature": ${temperature}';
+    return '"sensor_id": $sensorId, "temperature": $temperature';
   }
 }
 
@@ -24,7 +24,7 @@ class SensorIdToTemperatureReading {
   final Map<int, TemperatureReading> _temperatureResults =
       new Map<int, TemperatureReading>();
 
-  SensorIdToTemperatureReading() {}
+  SensorIdToTemperatureReading();
 
   TemperatureReading? operator [](int sensorId) =>
       _temperatureResults[sensorId];
@@ -33,7 +33,7 @@ class SensorIdToTemperatureReading {
     for (final temperatureResultJson in json) {
       var temperatureResult =
           TemperatureReading.fromJson(temperatureResultJson);
-      _temperatureResults[temperatureResult.sensor_id] = temperatureResult;
+      _temperatureResults[temperatureResult.sensorId] = temperatureResult;
     }
   }
 
@@ -41,7 +41,7 @@ class SensorIdToTemperatureReading {
   String toString() {
     var stringBuffer = new StringBuffer('[');
     _temperatureResults.forEach((key, value) {
-      stringBuffer.write('{${value}},');
+      stringBuffer.write('{$value},');
     });
     stringBuffer.write(']');
     return stringBuffer.toString();
@@ -69,8 +69,8 @@ class TemperatureModel with ChangeNotifier {
 
   void _getTemperature() async {
     var uri = 'https://api.gardeniot.dev.goatsinlace.com/0_0_1/temperature?';
-    for (var sensor_id in this._sensorIds) {
-      uri += "sensor_id${sensor_id.toString()}&";
+    for (var sensorId in this._sensorIds) {
+      uri += "sensor_id${sensorId.toString()}&";
     }
     final response = await http.get(Uri.parse(uri));
 
@@ -79,7 +79,7 @@ class TemperatureModel with ChangeNotifier {
           SensorIdToTemperatureReading.fromJson(jsonDecode(response.body));
       notifyListeners();
     } else {
-      print("Failed to load temperature:\n ${response}");
+      print("Failed to load temperature:\n $response");
       throw Exception('Failed to load temperature');
     }
   }

@@ -1,15 +1,15 @@
 import { ILogObject, Logger as TSLogger } from 'tslog';
 import { mqtt } from 'aws-crt';
-import getEnv from './getenv';
+import getEnv from './utils/getenv';
 import AWSConnection from './aws-connection';
 import util from 'util';
 
 class MQTTLogger {
   private sequence = 0;
 
-  private connection: AWSConnection | undefined;
+  private _awsConnection: AWSConnection | undefined;
 
-  private topic;
+  private topic = "";
 
   private _mainLogger;
   private _awsLogger;
@@ -19,24 +19,19 @@ class MQTTLogger {
     this._mainLogger = new TSLogger();
     this._awsLogger = this._mainLogger.getChildLogger({name: "MQTTLogger"});
     this._localOnlyLogger = new TSLogger();
-
-    try {
-      this.topic = getEnv('LOGGING_TOPIC', false)!;
-    } catch (error) {
-      this._localOnlyLogger.error(error);
-      throw error;
-    }
+    // We have a convention that the thing logs to ${CLIENT_ID}/logging
+    this.topic = getEnv('CLIENT_ID', false)!;
+    this.topic = `${this.topic}/logging`;
   }
-  
-  async init() {
+
+  async init(awsConnection : AWSConnection) {
+    this._awsConnection = awsConnection;
     try {
-      this.connection = new AWSConnection();
-      await this.connection.connect();
       this._awsLogger.attachTransport(
         {
-          silly: this.sendMessage.bind(this),
-          debug: this.sendMessage.bind(this),
-          trace: this.sendMessage.bind(this),
+          silly: this.devNull.bind(this),
+          debug: this.devNull.bind(this),
+          trace: this.devNull.bind(this),
           info: this.sendMessage.bind(this),
           warn: this.sendMessage.bind(this),
           error: this.sendMessage.bind(this),
@@ -50,13 +45,7 @@ class MQTTLogger {
     }
   }
 
-  async dispose() {
-    try {
-      await this.connection?.disconnect();
-    } catch (error) {
-      this._localOnlyLogger.error(error);
-      throw error;
-    }
+  private async devNull(logObject: ILogObject) {
   }
 
   private async sendMessage(logObject: ILogObject) {
@@ -79,7 +68,7 @@ class MQTTLogger {
       const json = JSON.stringify(msg);
       // Assert connection is defined here as should be impossible to call this
       // function without calling init() first.
-      const res = await this.connection!.publish(this.topic, json, mqtt.QoS.AtLeastOnce);
+      const res = await this._awsConnection!.publish(this.topic, json, mqtt.QoS.AtMostOnce);
 
       if(!res) {
         this._localOnlyLogger.warn(`Sending log to AWS may have failed: ${res}`);

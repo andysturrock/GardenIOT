@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:garden_iot/dial_editor.dart';
-import 'package:garden_iot/dial_type_dropdown.dart';
 
 class DialGridTile extends StatefulWidget {
   final int initialIndex;
@@ -13,8 +12,8 @@ class DialGridTile extends StatefulWidget {
       required this.initialIndex,
       required this.dial,
       required this.dialAttributes,
-      required void Function(int) this.onDeleteTile})
-      : super(key: key) {}
+      required this.onDeleteTile})
+      : super(key: key);
 
   @override
   _DialGridTileState createState() => _DialGridTileState(initialIndex);
@@ -24,9 +23,9 @@ class DialGridTile extends StatefulWidget {
 
 class _DialGridTileState extends State<DialGridTile> {
   int currentIndex;
-  _DialGridTileState(this.currentIndex) {}
+  _DialGridTileState(this.currentIndex);
 
-  void _ShowPopupMenu() {
+  void _showPopupMenu() {
     Future<dynamic> result = showMenu(
         context: context,
         items: <PopupMenuEntry>[
@@ -52,7 +51,7 @@ class _DialGridTileState extends State<DialGridTile> {
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
-      onLongPress: () => _ShowPopupMenu(),
+      onLongPress: () => _showPopupMenu(),
       child: widget.dial,
     );
   }

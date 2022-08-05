@@ -13,7 +13,7 @@ class TemperatureDial extends StatefulWidget {
     required this.temperatureModel,
     required this.dialName,
     required this.sensorId,
-  }) : super(key: key) {}
+  }) : super(key: key);
 
   @override
   _TemperatureDialState createState() => _TemperatureDialState();

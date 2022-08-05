@@ -24,7 +24,7 @@ class _DialsGridState extends State<DialsGrid> {
   Future<String> get _localFilePath async {
     final directory = await getApplicationDocumentsDirectory();
 
-    return "${directory.path}/${dialsFilename}";
+    return "$directory.path/$dialsFilename";
   }
 
   Future<List<DialGridTile>> _loadFromPersistentStorage() async {
@@ -40,7 +40,7 @@ class _DialsGridState extends State<DialsGrid> {
           var dialAttributes = DialAttributes.fromJson(dialAttributesJson);
           _dials.add(_createNewDialGridTile(dialAttributes));
         }
-      } catch (FormatException) {
+      } catch (error) {
         // The file has somehow become corrupted.
         // Best thing we can do here is delete the file and carry on.
         await localFile.delete();

@@ -4,8 +4,8 @@
   "description": "Raspberry Pi parts of GardenIOT project",
   "main": "index.js",
   "dependencies": {
-    "aws-crt": "^1.12.2",
-    "aws-iot-device-sdk-v2": "^1.8.1",
+    "aws-crt": "^1.13.2",
+    "aws-iot-device-sdk-v2": "^1.8.5",
     "class-transformer": "^0.5.1",
     "dotenv": "^16.0.1",
     "node-schedule": "^2.1.0",

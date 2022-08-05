@@ -1,5 +1,5 @@
 import { iot, mqtt } from 'aws-crt';
-import getEnv from './getenv';
+import getEnv from './utils/getenv';
 
 class AWSConnection {
   private connection : mqtt.MqttClientConnection | undefined;
@@ -27,7 +27,7 @@ class AWSConnection {
   async connect() {
     const client = new mqtt.MqttClient();
     this.connection = client.new_connection(this._config);
-    this.connection.connect();
+    await this.connection.connect();
   }
 
   async disconnect() {
@@ -41,6 +41,14 @@ class AWSConnection {
     retain?: boolean,
   ): Promise<mqtt.MqttRequest | undefined> {
     return this.connection?.publish(topic, payload, qos, retain);
+  }
+
+  async subscribe(topic: string, qos: mqtt.QoS, on_message?: mqtt.OnMessageCallback): Promise<mqtt.MqttSubscribeRequest | undefined> {
+    return this.connection?.subscribe(topic, qos, on_message);
+  }
+
+  async unsubscribe(topic: string): Promise<mqtt.MqttRequest | undefined> {
+    return this.connection?.unsubscribe(topic);
   }
 }
 

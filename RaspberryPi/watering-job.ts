@@ -60,12 +60,12 @@ class WateringJob {
     const stopDate = new Date(Date.now() + this._duration * 1000);
     schedule.scheduleJob(stopDate, this.stopWatering.bind(this));
     this._state = WateringJob.RUNNING;
-    this._relays.forEach((relay) => relay.on());
+    this._relays.forEach((relay) => relay.open());
   }
   
   private stopWatering() {
     this._state = WateringJob.WAITING;
-    this._relays.forEach((relay) => relay.off());
+    this._relays.forEach((relay) => relay.close());
   }
   
   /**

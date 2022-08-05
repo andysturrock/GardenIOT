@@ -1,8 +1,11 @@
+import getEnv from './utils/getenv';
 import mqttLogger from './mqtt-logger';
 import { RelayId } from './relay-id';
 import SerializedRelay from './serialization/serialized-relay';
 
-const gpio = require('rpi-gpio').promise;
+import { MockGPIO } from './__tests__/mock-gpio';
+const mockGPIO = getEnv('MOCK_GPIO', true);
+const gpio = mockGPIO? MockGPIO : require('rpi-gpio').promise;
 
 const logger = mqttLogger.logger;
 
@@ -40,18 +43,23 @@ class Relay {
     }
   }
 
-  async setup() {
+  async init() {
     await gpio.setup(this._id, gpio.DIR_OUT);
+    await this.close();
   }
 
-  async on() {
+  async dispose() {
+    await this.close();
+  }
+
+  async open() {
     await gpio.write(this._id, true);
-    logger.info(`Relay ${this._name} (pin ${this._id}) on.`);
+    logger.info(`Relay ${this._name} (pin ${this._id}) open.`);
   }
 
-  async off() {
+  async close() {
     await gpio.write(this._id, false);
-    logger.info(`Relay ${this._name} (pin ${this._id}) off.`);
+    logger.info(`Relay ${this._name} (pin ${this._id}) closed.`);
   }
 
   get id() {
