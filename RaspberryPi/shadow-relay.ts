@@ -15,6 +15,8 @@ class ShadowRelay extends Relay {
   private version = 0;
   // qos to use for all operations.
   private qos = mqtt.QoS.AtMostOnce;
+  // Timeout any externally triggered opens after 5 mins.
+  private openTimeout = 1000 * 60 * 5;
 
   constructor(id : RelayId, awsConnection: AWSConnection) {
     super(id);
@@ -59,6 +61,7 @@ class ShadowRelay extends Relay {
 
   // Called in response to a desired message.
   private async _open() {
+    setTimeout(this.close.bind(this), this.openTimeout);
     await super.open();
     await this.publishReportedShadowUpdate('open');
   }
