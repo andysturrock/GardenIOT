@@ -29,9 +29,9 @@ class MQTTLogger {
     try {
       this._awsLogger.attachTransport(
         {
-          silly: this.sendMessage.bind(this),
-          debug: this.sendMessage.bind(this),
-          trace: this.sendMessage.bind(this),
+          silly: this.devNull.bind(this),
+          debug: this.devNull.bind(this),
+          trace: this.devNull.bind(this),
           info: this.sendMessage.bind(this),
           warn: this.sendMessage.bind(this),
           error: this.sendMessage.bind(this),
@@ -43,6 +43,9 @@ class MQTTLogger {
       this._localOnlyLogger.error(error);
       throw error;
     }
+  }
+
+  private async devNull(logObject: ILogObject) {
   }
 
   private async sendMessage(logObject: ILogObject) {
@@ -65,7 +68,7 @@ class MQTTLogger {
       const json = JSON.stringify(msg);
       // Assert connection is defined here as should be impossible to call this
       // function without calling init() first.
-      const res = await this._awsConnection!.publish(this.topic, json, mqtt.QoS.AtLeastOnce);
+      const res = await this._awsConnection!.publish(this.topic, json, mqtt.QoS.AtMostOnce);
 
       if(!res) {
         this._localOnlyLogger.warn(`Sending log to AWS may have failed: ${res}`);
