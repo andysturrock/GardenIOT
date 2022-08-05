@@ -29,7 +29,7 @@ class ShadowRelayModel {
   /// Register a closure to be called when the relay changes state.
   void addRelayStateListener(int relayId, RelayStateCallback listener) {
     var listeners = _relayStateListeners[relayId];
-    if (listeners == null) {
+    if (listeners == null || listeners.length == 0) {
       listeners = [listener];
       _relayStateListeners[relayId] = listeners;
 
@@ -52,8 +52,9 @@ class ShadowRelayModel {
             _client.publishMessage(
                 getTopic, MqttQos.atLeastOnce, builder.payload!)
           });
+    } else {
+      listeners.add(listener);
     }
-    listeners.add(listener);
   }
 
   /// Remove the closure registration for this relay.  Note that if the
