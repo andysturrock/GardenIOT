@@ -27,7 +27,7 @@ class AWSConnection {
   async connect() {
     const client = new mqtt.MqttClient();
     this.connection = client.new_connection(this._config);
-    this.connection.connect();
+    await this.connection.connect();
   }
 
   async disconnect() {
