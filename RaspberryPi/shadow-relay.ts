@@ -13,6 +13,8 @@ class ShadowRelay extends Relay {
   private _awsConnection : AWSConnection;
   private thingName: string;
   private version = 0;
+  // qos to use for all operations.
+  private qos = mqtt.QoS.AtMostOnce;
 
   constructor(id : RelayId, awsConnection: AWSConnection) {
     super(id);
@@ -78,7 +80,7 @@ class ShadowRelay extends Relay {
             }
         }
       };
-      await this._awsConnection.publish(topic, stateReportedDoc, mqtt.QoS.AtLeastOnce);
+      await this._awsConnection.publish(topic, stateReportedDoc, this.qos);
     }
     catch(error) {
       if(error instanceof Error) {
@@ -100,7 +102,7 @@ class ShadowRelay extends Relay {
             }
         }
       };
-      await this._awsConnection.publish(topic, stateReportedDoc, mqtt.QoS.AtLeastOnce);
+      await this._awsConnection.publish(topic, stateReportedDoc, this.qos);
     }
     catch(error) {
       if(error instanceof Error) {
@@ -164,10 +166,10 @@ class ShadowRelay extends Relay {
 
   private async subscribe() {
     const baseTopic = `$aws/things/${this.thingName}/shadow/name/${this.name}/update`;
-    await this._awsConnection.subscribe(`${baseTopic}/accepted`, mqtt.QoS.AtLeastOnce, this.onAccepted.bind(this));
-    await this._awsConnection.subscribe(`${baseTopic}/rejected`, mqtt.QoS.AtLeastOnce, this.onRejected.bind(this));
-    await this._awsConnection.subscribe(`${baseTopic}/delta`, mqtt.QoS.AtLeastOnce, this.onDelta.bind(this));
-    await this._awsConnection.subscribe(`${baseTopic}/documents`, mqtt.QoS.AtLeastOnce, this.onDocuments.bind(this));
+    await this._awsConnection.subscribe(`${baseTopic}/accepted`, this.qos, this.onAccepted.bind(this));
+    await this._awsConnection.subscribe(`${baseTopic}/rejected`, this.qos, this.onRejected.bind(this));
+    await this._awsConnection.subscribe(`${baseTopic}/delta`, this.qos, this.onDelta.bind(this));
+    await this._awsConnection.subscribe(`${baseTopic}/documents`, this.qos, this.onDocuments.bind(this));
   }
 
   private async unsubscribe() {
