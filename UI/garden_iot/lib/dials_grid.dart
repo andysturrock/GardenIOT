@@ -24,7 +24,7 @@ class _DialsGridState extends State<DialsGrid> {
   Future<String> get _localFilePath async {
     final directory = await getApplicationDocumentsDirectory();
 
-    return "$directory.path/$dialsFilename";
+    return "${directory.path}/$dialsFilename";
   }
 
   Future<List<DialGridTile>> _loadFromPersistentStorage() async {
@@ -56,15 +56,17 @@ class _DialsGridState extends State<DialsGrid> {
     await localFile.writeAsString(jsonString);
   }
 
+  void _initState() async {
+    final persistedDials = await _loadFromPersistentStorage();
+    setState(() {
+      _dials = persistedDials;
+    });
+  }
+
   @override
   void initState() {
     super.initState();
-    final persistedDials = _loadFromPersistentStorage();
-    persistedDials.then((dials) {
-      setState(() {
-        _dials = dials;
-      });
-    });
+    this._initState();
   }
 
   @override
