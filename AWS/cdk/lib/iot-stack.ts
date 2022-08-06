@@ -14,6 +14,7 @@ export class IOTStack extends Stack {
     const clientId = getEnv('CLIENT_ID', false)!;
     const loggingTopic = `${clientId}/logging`;
     const deviceCertificateArn = getEnv('DEVICE_CERT_ARN', false)!;
+    const mobileAppName = getEnv('MOBILE_APP_NAME', false)!;
     const mobileAppCertificateArn = getEnv('MOBILE_APP_CERT_ARN', false)!;
     const thingShadowUpdateTopic = `$aws/things/${clientId}/shadow/name/*/update`;
     const thingShadowUpdateAcceptedTopic = `${thingShadowUpdateTopic}/accepted`;
@@ -43,7 +44,7 @@ export class IOTStack extends Stack {
     // TODO - for now create a thing for the mobile app and use it for permissions etc.
     // Should replace with AWS Cognito identity for the user.
     const mobileAppThing = new iot.CfnThing(this, 'MobileAppThing', {
-      thingName: 'mobile-app',
+      thingName: mobileAppName,
     });
 
     const devicePolicyProps: Array<CfnPolicyProps> = [];
@@ -202,7 +203,7 @@ export class IOTStack extends Stack {
           "Effect": "Allow",
           "Action": "iot:Connect",
           "Resource": [
-            `arn:aws:iot:${this.region}:${this.account}:client/mobile-app`
+            `arn:aws:iot:${this.region}:${this.account}:client/${mobileAppName}`
           ]
         }
       ]
