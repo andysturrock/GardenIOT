@@ -3,8 +3,10 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:garden_iot/log_model.dart';
 import 'package:garden_iot/serialization/desired_state.dart';
 import 'package:garden_iot/serialization/reported_state.dart';
+import 'package:garden_iot/utils/env.dart';
 import 'package:mqtt_client/mqtt_client.dart';
 import 'package:mqtt_client/mqtt_server_client.dart';
 import 'package:flutter/services.dart';
@@ -12,19 +14,18 @@ import 'package:flutter/services.dart';
 typedef RelayStateCallback = void Function(bool relayIsOpen);
 
 class ShadowRelayModel {
-  // TODO get these from build
-  final _client =
-      MqttServerClient('a2cy4c2yyuss64-ats.iot.eu-west-1.amazonaws.com', '');
-  final _clientId = "mobile-app";
-  final _deviceId = "linux-vpc-3";
-  final _deviceLoggingTopic = 'linux-vpc-3/logging';
+  final _client = MqttServerClient(Env.iotEndPoint(), '');
+  final _clientId = Env.clientId();
+  final _deviceId = Env.deviceId();
+  final _deviceLoggingTopic = Env.deviceLoggingTopic();
+  final LogModel _logModel;
 
   bool _isConnected = false;
   List<VoidCallback> _onConnectedCallbacks = [];
   List<VoidCallback> _onDisconnectedCallbacks = [];
   final _relayStateListeners = new Map<int, List<RelayStateCallback>>();
 
-  ShadowRelayModel();
+  ShadowRelayModel(this._logModel);
 
   /// Register a closure to be called when the relay changes state.
   void addRelayStateListener(int relayId, RelayStateCallback listener) {
@@ -115,11 +116,9 @@ class ShadowRelayModel {
       if (_isConnected) {
         return true;
       }
-      ByteData rootCA = await bundle.load('assets/certs/AmazonRootCA1.pem');
-      ByteData deviceCert = await bundle.load(
-          'assets/certs/bb381ae692c9965e9996ab013d428e49a05d1ac15eacc08ae555e3eb414014aa-certificate.pem.crt');
-      ByteData privateKey = await bundle.load(
-          'assets/certs/bb381ae692c9965e9996ab013d428e49a05d1ac15eacc08ae555e3eb414014aa-private.pem.key');
+      ByteData rootCA = await bundle.load(Env.rootCAPath());
+      ByteData deviceCert = await bundle.load(Env.deviceCertPath());
+      ByteData privateKey = await bundle.load(Env.privateKeyPath());
 
       SecurityContext context = SecurityContext.defaultContext;
       context.setClientAuthoritiesBytes(rootCA.buffer.asUint8List());
@@ -128,7 +127,7 @@ class ShadowRelayModel {
       context.setAlpnProtocols(["x-amzn-mqtt-ca"], false);
 
       _client.securityContext = context;
-      _client.logging(on: false);
+      _client.logging(on: Env.mqttLogging());
       _client.keepAlivePeriod = 20;
       _client.port = 443;
       _client.secure = true;
@@ -145,9 +144,10 @@ class ShadowRelayModel {
 
       final connStatus = await _client.connect();
       if (_client.connectionStatus!.state == MqttConnectionState.connected) {
-        print('Connected : $connStatus');
+        _logModel.log('Connected : $connStatus');
       } else {
-        print('Failed to connect:\n${_client.connectionStatus}\n$connStatus');
+        _logModel.log(
+            'Failed to connect:\n${_client.connectionStatus}\n$connStatus');
         return false;
       }
 
@@ -156,25 +156,25 @@ class ShadowRelayModel {
 
       return true;
     } catch (exception, stacktrace) {
-      print('Failed to connect: $exception, $stacktrace');
+      _logModel.log('Failed to connect: $exception, $stacktrace');
       return false;
     }
   }
 
   void _pong() {
-    print('Ping response callback invoked');
+    _logModel.log('Ping response callback invoked');
   }
 
   void _onSubscribed(String topic) {
-    print('Subscribed to $topic');
+    _logModel.log('Subscribed to $topic');
   }
 
   void _onSubscribeFail(String topic) {
-    print('Subscribe to $topic failed');
+    _logModel.log('Subscribe to $topic failed');
   }
 
   void _onUnsubscribed(String? topic) {
-    print('Unsubscribed from $topic');
+    _logModel.log('Unsubscribed from $topic');
   }
 
   void _onConnected() {
@@ -219,15 +219,15 @@ class ShadowRelayModel {
     }
 
     String json = utf8.decode(mqttPublishMessage.payload.message);
-    print('Unexpected message: $json');
+    _logModel.log('Unexpected message: $json');
   }
 
   void onError(Object error) {
-    print('onError: $error');
+    _logModel.log('onError: $error');
   }
 
   void onDone() {
-    print('onDone');
+    _logModel.log('onDone');
   }
 
   void _onLogging(MqttPublishMessage mqttPublishMessage) {
@@ -243,7 +243,7 @@ class ShadowRelayModel {
       if (json["state"]?["reported"] != null) {
         ReportedState state = ReportedState.fromJson(json);
         openClosed = state.reported.openClosed.openClosed == "open";
-        print('State reported for relay $relayId $openClosed');
+        _logModel.log('State reported for relay $relayId $openClosed');
         _relayStateListeners[relayId]?.forEach((relayStateListener) {
           relayStateListener(openClosed);
         });
@@ -253,10 +253,10 @@ class ShadowRelayModel {
         // Either way we can just log it for debugging purposes and ignore it.
         DesiredState state = DesiredState.fromJson(json);
         openClosed = state.desired.openClosed.openClosed == "open";
-        print('State desired for relay $relayId $openClosed');
+        _logModel.log('State desired for relay $relayId $openClosed');
       }
     } catch (error) {
-      print('Failed to decode updated state message: $error');
+      _logModel.log('Failed to decode updated state message: $error');
     }
   }
 

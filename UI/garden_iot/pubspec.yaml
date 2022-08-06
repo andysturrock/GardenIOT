@@ -36,6 +36,7 @@ dependencies:
   mqtt_client: ^9.6.8
   ndialog: ^4.1.1+1
   build_runner: ^2.2.0
+  mutex: ^3.0.0
 
 dev_dependencies:
   flutter_test:
@@ -57,6 +58,8 @@ flutter:
     - assets/certs/AmazonRootCA1.pem
     - assets/certs/bb381ae692c9965e9996ab013d428e49a05d1ac15eacc08ae555e3eb414014aa-certificate.pem.crt
     - assets/certs/bb381ae692c9965e9996ab013d428e49a05d1ac15eacc08ae555e3eb414014aa-private.pem.key
+    - assets/certs/05c12aa55939f18c6f71c323605d3d686443999b7ab3c5a560c77fd885c7d71f-certificate.pem.crt
+    - assets/certs/05c12aa55939f18c6f71c323605d3d686443999b7ab3c5a560c77fd885c7d71f-private.pem.key
 
   # To add assets to your application, add an assets section, like this:
   # assets:

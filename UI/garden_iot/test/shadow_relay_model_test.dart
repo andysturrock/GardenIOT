@@ -3,6 +3,7 @@ import 'dart:typed_data';
 
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:garden_iot/log_model.dart';
 import 'package:garden_iot/shadow_relay_model.dart';
 
 class TestAssetBundle extends AssetBundle {
@@ -16,7 +17,6 @@ class TestAssetBundle extends AssetBundle {
   @override
   Future<T> loadStructuredData<T>(
       String key, Future<T> Function(String value) parser) {
-    // TODO: implement loadStructuredData
     throw UnimplementedError();
   }
 }
@@ -39,7 +39,7 @@ void stateChanged2(bool relayIsOpen) {
 
 void main() {
   test('ShadowRelayModel works correctly', () async {
-    ShadowRelayModel model = ShadowRelayModel();
+    ShadowRelayModel model = ShadowRelayModel(LogModel());
 
     model.addOnConnectedCallback(onConnected);
     model.addOnDisconnectedCallback(onDisconnected);

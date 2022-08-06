@@ -1,4 +1,4 @@
-const bool isProduction = false; //bool.fromEnvironment('dart.vm.product');
+const bool isProduction = bool.fromEnvironment('dart.vm.product');
 
 /// Class to store environment (ie dev, prod) versions of variables.
 /// TODO make much more flexible and configurable.
