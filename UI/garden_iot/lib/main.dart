@@ -4,6 +4,7 @@ import 'package:garden_iot/log_model.dart';
 import 'package:garden_iot/logger.dart';
 import 'package:garden_iot/shadow_relay_model.dart';
 import 'package:garden_iot/temperature_model.dart';
+import 'package:garden_iot/utils/env.dart';
 import 'package:garden_iot/water_now_grid.dart';
 import 'package:provider/provider.dart';
 
@@ -27,6 +28,12 @@ void main() {
 class MyApp extends StatelessWidget {
   final DialsGrid _dialsGrid = DialsGrid();
   final Logger _logger = Logger();
+  late String _title;
+
+  MyApp() {
+    final envName = Env.envName();
+    _title = 'Garden IOT ($envName)';
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -42,7 +49,7 @@ class MyApp extends StatelessWidget {
                 Tab(icon: Icon(Icons.text_fields_rounded)),
               ],
             ),
-            title: const Text('Garden IOT'),
+            title: Text(_title),
           ),
           body: TabBarView(
             children: [_dialsGrid, WaterNowGrid(), _logger],

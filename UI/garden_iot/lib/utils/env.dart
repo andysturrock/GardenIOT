@@ -3,6 +3,10 @@ const bool isProduction = bool.fromEnvironment('dart.vm.product');
 /// Class to store environment (ie dev, prod) versions of variables.
 /// TODO make much more flexible and configurable.
 class Env {
+  static envName() {
+    return isProduction ? 'Production' : 'Test';
+  }
+
   static String rootCAPath() {
     return 'assets/certs/AmazonRootCA1.pem';
   }
