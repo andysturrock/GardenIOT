@@ -2,85 +2,80 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
+import 'package:garden_iot/log_model.dart';
+import 'package:garden_iot/utils/env.dart';
 import 'package:http/http.dart' as http;
 
 class TemperatureReading {
   final int sensorId;
   final double temperature;
 
-  TemperatureReading(this.sensorId, this.temperature);
+  const TemperatureReading(this.sensorId, this.temperature);
 
-  TemperatureReading.fromJson(Map<String, dynamic> json)
-      : sensorId = json['sensor_id'],
-        temperature = double.parse(json['temperature']);
-
-  @override
-  String toString() {
-    return '"sensor_id": $sensorId, "temperature": $temperature';
-  }
-}
-
-class SensorIdToTemperatureReading {
-  final Map<int, TemperatureReading> _temperatureResults =
-      new Map<int, TemperatureReading>();
-
-  SensorIdToTemperatureReading();
-
-  TemperatureReading? operator [](int sensorId) =>
-      _temperatureResults[sensorId];
-
-  SensorIdToTemperatureReading.fromJson(List<dynamic> json) {
-    for (final temperatureResultJson in json) {
-      var temperatureResult =
-          TemperatureReading.fromJson(temperatureResultJson);
-      _temperatureResults[temperatureResult.sensorId] = temperatureResult;
-    }
+  factory TemperatureReading.fromJson(Map<String, dynamic> json) {
+    final raw = json['temperature'];
+    final temperature = raw is num ? raw.toDouble() : double.parse('$raw');
+    final id = json['sensor_id'];
+    final sensorId = id is int ? id : int.parse('$id');
+    return TemperatureReading(sensorId, temperature);
   }
 
   @override
-  String toString() {
-    var stringBuffer = new StringBuffer('[');
-    _temperatureResults.forEach((key, value) {
-      stringBuffer.write('{$value},');
-    });
-    stringBuffer.write(']');
-    return stringBuffer.toString();
-  }
+  String toString() => 'TemperatureReading($sensorId, $temperature)';
 }
 
 class TemperatureModel with ChangeNotifier {
   final Duration _pollPeriod;
-  SensorIdToTemperatureReading _currentTemperatures =
-      new SensorIdToTemperatureReading();
-  final List<int> _sensorIds = [];
+  final LogModel _logModel;
+  final List<int> _sensorIds;
 
-  TemperatureModel(this._pollPeriod) {
-    new Timer.periodic(_pollPeriod, (_) => _getTemperature());
+  Map<int, TemperatureReading> _readings = <int, TemperatureReading>{};
+  Timer? _timer;
+  bool _disposed = false;
+
+  TemperatureModel(this._pollPeriod, this._logModel)
+      : _sensorIds = AppConfig.sensors.map((s) => s.sensorId).toList(growable: false) {
+    if (_sensorIds.isEmpty) return;
+    unawaited(_poll());
+    _timer = Timer.periodic(_pollPeriod, (_) => _poll());
   }
 
-  void addSensor(int sensorId) => this._sensorIds.add(sensorId);
+  TemperatureReading? readingFor(int sensorId) => _readings[sensorId];
 
-  void removeSensor(int sensorId) => this._sensorIds.remove(sensorId);
-
-  SensorIdToTemperatureReading get currentTemperatures => _currentTemperatures;
-
-  TemperatureReading? getCurrentTemperature(int sensorId) =>
-      _currentTemperatures[sensorId];
-
-  void _getTemperature() async {
-    var uri = 'https://api.gardeniot.dev.goatsinlace.com/0_0_1/temperature?';
-    for (var sensorId in this._sensorIds) {
-      uri += "sensor_id${sensorId.toString()}&";
-    }
-    final response = await http.get(Uri.parse(uri));
-
-    if (response.statusCode == 200) {
-      _currentTemperatures =
-          SensorIdToTemperatureReading.fromJson(jsonDecode(response.body));
+  Future<void> _poll() async {
+    if (_disposed) return;
+    try {
+      // The lambda parses sensor IDs from the *keys* of queryStringParameters,
+      // stripping the literal "sensor_id" prefix. So we emit
+      // `?sensor_id1=&sensor_id2=` (values are ignored).
+      final uri = Uri.https(
+        AppConfig.temperatureApiHost,
+        AppConfig.temperatureApiPath,
+        {for (final id in _sensorIds) 'sensor_id$id': ''},
+      );
+      final response = await http.get(uri);
+      if (_disposed) return;
+      if (response.statusCode != 200) {
+        _logModel.log('Temperature fetch failed: HTTP ${response.statusCode}');
+        return;
+      }
+      final decoded = jsonDecode(response.body) as List<dynamic>;
+      final next = <int, TemperatureReading>{};
+      for (final item in decoded) {
+        final reading = TemperatureReading.fromJson(item as Map<String, dynamic>);
+        next[reading.sensorId] = reading;
+      }
+      _readings = next;
       notifyListeners();
-    } else {
-      print("Failed to load temperature:\n $response");
-      throw Exception('Failed to load temperature');
+    } catch (e) {
+      _logModel.log('Temperature fetch error: $e');
     }
+  }
+
+  @override
+  void dispose() {
+    _disposed = true;
+    _timer?.cancel();
+    super.dispose();
   }
 }

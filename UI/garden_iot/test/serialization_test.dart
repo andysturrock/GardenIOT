@@ -1,71 +1,62 @@
 import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:garden_iot/serialization/desired.dart';
-import 'package:garden_iot/serialization/desired_state.dart';
-import 'package:garden_iot/serialization/open_closed.dart';
-import 'package:garden_iot/serialization/reported.dart';
-import 'package:garden_iot/serialization/reported_state.dart';
+import 'package:garden_iot/serialization/shadow_message.dart';
 
 void main() {
-  test('OpenClosed deserialises correctly', () {
-    final expected = OpenClosed("open");
+  group('RelayState', () {
+    test('fromJsonString parses "open" / "closed" / unknown', () {
+      expect(RelayState.fromJsonString('open'), RelayState.open);
+      expect(RelayState.fromJsonString('closed'), RelayState.closed);
+      expect(RelayState.fromJsonString('something_else'), isNull);
+      expect(RelayState.fromJsonString(null), isNull);
+    });
 
-    String json = jsonEncode(expected);
-    var actualMap = jsonDecode(json);
-
-    final actual = OpenClosed.fromJson(actualMap);
-
-    expect(actual, expected);
+    test('isOpen reflects state', () {
+      expect(RelayState.open.isOpen, isTrue);
+      expect(RelayState.closed.isOpen, isFalse);
+    });
   });
 
-  test('Reported deserialises correctly', () {
-    final expectedOpenClosed = OpenClosed("open");
-    final expected = Reported(expectedOpenClosed);
+  group('ShadowMessage.fromJson', () {
+    test('parses reported-only payload', () {
+      final json = jsonDecode('{"state":{"reported":{"open_closed":"open"}}}');
+      final msg = ShadowMessage.fromJson(json);
+      expect(msg.reported, RelayState.open);
+      expect(msg.desired, isNull);
+    });
 
-    String json = jsonEncode(expected);
-    var actualMap = jsonDecode(json);
+    test('parses desired-only payload', () {
+      final json = jsonDecode('{"state":{"desired":{"open_closed":"closed"}}}');
+      final msg = ShadowMessage.fromJson(json);
+      expect(msg.desired, RelayState.closed);
+      expect(msg.reported, isNull);
+    });
 
-    final actual = Reported.fromJson(actualMap);
+    test('parses combined reported + desired', () {
+      final json = jsonDecode(
+        '{"state":{"reported":{"open_closed":"closed"},"desired":{"open_closed":"open"}}}',
+      );
+      final msg = ShadowMessage.fromJson(json);
+      expect(msg.reported, RelayState.closed);
+      expect(msg.desired, RelayState.open);
+    });
 
-    expect(actual, expected);
+    test('handles missing state', () {
+      final msg = ShadowMessage.fromJson(<String, dynamic>{});
+      expect(msg.reported, isNull);
+      expect(msg.desired, isNull);
+    });
   });
 
-  test('ReportedState deserialises correctly', () {
-    final expectedOpenClosed = OpenClosed("open");
-    final expectedReported = Reported(expectedOpenClosed);
-    final expected = ReportedState(expectedReported);
-
-    String json = jsonEncode(expected);
-    var actualMap = jsonDecode(json);
-
-    final actual = ReportedState.fromJson(actualMap);
-
-    expect(actual, expected);
-  });
-
-  test('Desired deserialises correctly', () {
-    final expectedOpenClosed = OpenClosed("open");
-    final expected = Desired(expectedOpenClosed);
-
-    String json = jsonEncode(expected);
-    var actualMap = jsonDecode(json);
-
-    final actual = Desired.fromJson(actualMap);
-
-    expect(actual, expected);
-  });
-
-  test('DesiredState deserialises correctly', () {
-    final expectedOpenClosed = OpenClosed("open");
-    final expectedReported = Desired(expectedOpenClosed);
-    final expected = DesiredState(expectedReported);
-
-    String json = jsonEncode(expected);
-    var actualMap = jsonDecode(json);
-
-    final actual = DesiredState.fromJson(actualMap);
-
-    expect(actual, expected);
+  test('desiredUpdate builds the expected envelope', () {
+    expect(
+      ShadowMessage.desiredUpdate(RelayState.open),
+      {
+        'state': {
+          'desired': {'open_closed': 'open'},
+        },
+      },
+    );
   });
 }

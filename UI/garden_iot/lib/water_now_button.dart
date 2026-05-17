@@ -1,54 +1,80 @@
 import 'package:flutter/material.dart';
-import 'package:garden_iot/shadow_relay_model.dart';
+import 'package:garden_iot/serialization/shadow_message.dart';
+import 'package:garden_iot/theme/app_theme.dart';
+import 'package:garden_iot/utils/env.dart';
 
-class WaterNowButton extends StatefulWidget {
-  final String _name;
-  final int _relayId;
-  final ShadowRelayModel _model;
+class WaterNowButton extends StatelessWidget {
+  final RelayConfig relay;
+  final RelayState? reportedState;
+  final bool enabled;
+  final ValueChanged<bool> onToggle;
 
-  WaterNowButton(this._name, this._relayId, this._model);
+  const WaterNowButton({
+    super.key,
+    required this.relay,
+    required this.reportedState,
+    required this.enabled,
+    required this.onToggle,
+  });
 
-  @override
-  _WaterNowButtonState createState() => _WaterNowButtonState();
-}
-
-class _WaterNowButtonState extends State<WaterNowButton> {
-  bool _relayIsOpen = false;
-  @override
-  void initState() {
-    super.initState();
-    widget._model.addRelayStateListener(widget._relayId, onRelayStateChange);
-  }
-
-  @override
-  void dispose() {
-    super.dispose();
-    widget._model.removeRelayStateListener(widget._relayId, onRelayStateChange);
-  }
-
-  onRelayStateChange(bool state) {
-    setState(() {
-      _relayIsOpen = state;
-    });
-  }
-
-  Future<void> _setShadowState(int relayId, bool openClosed) async {
-    widget._model.updateState(relayId, openClosed);
+  IconData _iconFor(IconCodepoint icon) {
+    switch (icon) {
+      case IconCodepoint.spa:
+        return Icons.spa_outlined;
+      case IconCodepoint.localFlorist:
+        return Icons.local_florist_outlined;
+      case IconCodepoint.agriculture:
+        return Icons.agriculture_outlined;
+      case IconCodepoint.grass:
+        return Icons.grass_outlined;
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    return Center(
-      child: Column(
-        children: <Widget>[
-          Text(widget._name),
-          Switch(
-            value: _relayIsOpen,
-            onChanged: (value) {
-              _setShadowState(widget._relayId, value);
-            },
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
+    final isOpen = reportedState?.isOpen ?? false;
+    return Card(
+      child: InkWell(
+        onTap: enabled ? () => onToggle(!isOpen) : null,
+        child: Padding(
+          padding: const EdgeInsets.all(AppSpacing.md),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Icon(
+                    _iconFor(relay.icon),
+                    color: isOpen ? colorScheme.primary : colorScheme.onSurfaceVariant,
+                    size: 32,
+                  ),
+                  Switch.adaptive(
+                    value: isOpen,
+                    onChanged: enabled ? onToggle : null,
+                  ),
+                ],
+              ),
+              const SizedBox(height: AppSpacing.sm),
+              Text(
+                relay.name,
+                style: textTheme.titleMedium,
+                overflow: TextOverflow.ellipsis,
+              ),
+              Text(
+                reportedState == null
+                    ? 'Unknown'
+                    : (isOpen ? 'Watering' : 'Off'),
+                style: textTheme.bodySmall?.copyWith(
+                  color: colorScheme.onSurfaceVariant,
+                ),
+              ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }

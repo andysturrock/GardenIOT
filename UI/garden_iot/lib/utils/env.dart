@@ -1,47 +1,67 @@
-const bool isProduction = bool.fromEnvironment('dart.vm.product');
+class SensorConfig {
+  final String name;
+  final int sensorId;
+  final double minTemp;
+  final double maxTemp;
+  final double minComfort;
+  final double maxComfort;
 
-/// Class to store environment (ie dev, prod) versions of variables.
-/// TODO make much more flexible and configurable.
-class Env {
-  static envName() {
-    return isProduction ? 'Production' : 'Test';
-  }
+  const SensorConfig({
+    required this.name,
+    required this.sensorId,
+    this.minTemp = -10,
+    this.maxTemp = 50,
+    this.minComfort = 10,
+    this.maxComfort = 25,
+  });
+}
 
-  static String rootCAPath() {
-    return 'assets/certs/AmazonRootCA1.pem';
-  }
+class RelayConfig {
+  final String name;
+  final int relayId;
+  final IconCodepoint icon;
 
-  static String deviceCertPath() {
-    return isProduction
-        ? 'assets/certs/05c12aa55939f18c6f71c323605d3d686443999b7ab3c5a560c77fd885c7d71f-certificate.pem.crt'
-        : 'assets/certs/bb381ae692c9965e9996ab013d428e49a05d1ac15eacc08ae555e3eb414014aa-certificate.pem.crt';
-  }
+  const RelayConfig({
+    required this.name,
+    required this.relayId,
+    this.icon = IconCodepoint.spa,
+  });
+}
 
-  static String privateKeyPath() {
-    return isProduction
-        ? 'assets/certs/05c12aa55939f18c6f71c323605d3d686443999b7ab3c5a560c77fd885c7d71f-private.pem.key'
-        : 'assets/certs/bb381ae692c9965e9996ab013d428e49a05d1ac15eacc08ae555e3eb414014aa-private.pem.key';
-  }
+enum IconCodepoint { spa, localFlorist, agriculture, grass }
 
-  static String iotEndPoint() {
-    return isProduction
-        ? 'a2i5zcd57sb82b-ats.iot.eu-west-1.amazonaws.com'
-        : 'a2cy4c2yyuss64-ats.iot.eu-west-1.amazonaws.com';
-  }
+class AppConfig {
+  static const String rootCAPath = 'assets/certs/AmazonRootCA1.pem';
 
-  static String clientId() {
-    return isProduction ? 'prod-mobile-app' : 'dev-mobile-app';
-  }
+  static const String deviceCertPath =
+      'assets/certs/5eb3ad97272b2323f222e6efad963ec376e28fc2ef344f17d5e858a11bffe96f-certificate.pem.crt';
 
-  static String deviceId() {
-    return isProduction ? 'raspberrypi-1' : 'linux-vpc-3';
-  }
+  static const String privateKeyPath =
+      'assets/certs/5eb3ad97272b2323f222e6efad963ec376e28fc2ef344f17d5e858a11bffe96f-private.pem.key';
 
-  static String deviceLoggingTopic() {
-    return isProduction ? 'raspberrypi-1/logging' : 'linux-vpc-3/logging';
-  }
+  static const String iotEndPoint =
+      'a2i5zcd57sb82b-ats.iot.eu-west-1.amazonaws.com';
 
-  static bool mqttLogging() {
-    return isProduction ? false : true;
-  }
+  static const String clientId = 'prod-mobile-app';
+  static const String deviceId = 'raspberrypi-1';
+  static const String deviceLoggingTopic = '$deviceId/logging';
+
+  static const bool mqttLogging = false;
+
+  static const String temperatureApiHost = 'api.gardeniot.goatsinlace.com';
+  static const String temperatureApiPath = '/0_0_1/temperature';
+
+  static const List<SensorConfig> sensors = [
+    SensorConfig(name: 'Greenhouse', sensorId: 1),
+    SensorConfig(name: 'Outside', sensorId: 2),
+  ];
+
+  static const List<RelayConfig> relays = [
+    RelayConfig(name: 'Greenhouse', relayId: 1, icon: IconCodepoint.spa),
+    RelayConfig(name: 'Flowers', relayId: 2, icon: IconCodepoint.localFlorist),
+    RelayConfig(name: 'Strawberries', relayId: 3, icon: IconCodepoint.agriculture),
+    RelayConfig(name: 'Sweetcorn', relayId: 4, icon: IconCodepoint.grass),
+  ];
+
+  const AppConfig._();
 }

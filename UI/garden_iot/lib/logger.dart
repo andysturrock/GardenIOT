@@ -1,59 +1,74 @@
 import 'package:flutter/material.dart';
 import 'package:garden_iot/log_model.dart';
+import 'package:garden_iot/theme/app_theme.dart';
 import 'package:provider/provider.dart';
 
-class Logger extends StatefulWidget {
+class LoggerView extends StatefulWidget {
+  const LoggerView({super.key});
+
   @override
-  _LoggerState createState() => _LoggerState();
+  State<LoggerView> createState() => _LoggerViewState();
 }
 
-class _LoggerState extends State<Logger> with LogListener {
-  LogModel? _model;
-  List<String> _logMessages = [];
-  int numLogMessagesToKeep = 5;
-
-  @override
-  void initState() {
-    super.initState();
-    _model = context.read<LogModel>();
-    _model?.addLogListener(this);
-    if (_model != null) {
-      _logMessages = _model!.getLogMessages();
-    }
-  }
+class _LoggerViewState extends State<LoggerView> {
+  final ScrollController _scrollController = ScrollController();
 
   @override
   void dispose() {
-    _model?.removeLogListener(this);
+    _scrollController.dispose();
     super.dispose();
   }
 
-  void onLogMessage(String logMessage) {
-    _logMessages.removeAt(0);
-    setState(() {
-      _logMessages.add(logMessage);
+  void _scrollToBottom() {
+    if (!_scrollController.hasClients) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!_scrollController.hasClients) return;
+      _scrollController.animateTo(
+        _scrollController.position.maxScrollExtent,
+        duration: const Duration(milliseconds: 250),
+        curve: Curves.easeOut,
+      );
     });
   }
 
   @override
   Widget build(BuildContext context) {
-    return ListView.separated(
-      padding: const EdgeInsets.all(8),
-      itemCount: _logMessages.length,
-      itemBuilder: (BuildContext context, int index) {
-        return Container(
-          height: 50,
-          child: Center(
+    final model = context.read<LogModel>();
+    final colorScheme = Theme.of(context).colorScheme;
+    return StreamBuilder<List<String>>(
+      stream: model.stream,
+      initialData: model.messages,
+      builder: (context, snapshot) {
+        final messages = snapshot.data ?? const <String>[];
+        if (messages.isEmpty) {
+          return Center(
+            child: Text(
+              'No log messages yet.',
+              style: TextStyle(color: colorScheme.onSurfaceVariant),
+            ),
+          );
+        }
+        _scrollToBottom();
+        return ListView.separated(
+          controller: _scrollController,
+          padding: const EdgeInsets.all(AppSpacing.md),
+          itemCount: messages.length,
+          separatorBuilder: (_, __) => const Divider(height: 1),
+          itemBuilder: (context, index) {
+            return Padding(
+              padding: const EdgeInsets.symmetric(vertical: AppSpacing.xs),
               child: Text(
-            '${_logMessages[index]}',
-            style: TextStyle(
-                fontFamily: 'Courier',
-                fontSize: 12,
-                fontWeight: FontWeight.bold),
-          )),
+                messages[index],
+                style: const TextStyle(
+                  fontFamily: 'monospace',
+                  fontFeatures: [FontFeature.tabularFigures()],
+                  fontSize: 12,
+                ),
+              ),
+            );
+          },
         );
       },
-      separatorBuilder: (BuildContext context, int index) => const Divider(),
     );
   }
 }

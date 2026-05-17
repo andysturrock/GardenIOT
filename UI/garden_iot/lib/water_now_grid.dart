@@ -1,84 +1,128 @@
 import 'package:flutter/material.dart';
+import 'package:garden_iot/serialization/shadow_message.dart';
 import 'package:garden_iot/shadow_relay_model.dart';
+import 'package:garden_iot/theme/app_theme.dart';
+import 'package:garden_iot/utils/env.dart';
 import 'package:garden_iot/water_now_button.dart';
 import 'package:provider/provider.dart';
 
-class WaterNowGrid extends StatefulWidget {
-  @override
-  _WaterNowGridState createState() => _WaterNowGridState();
-}
+class WaterNowGrid extends StatelessWidget {
+  const WaterNowGrid({super.key});
 
-class _WaterNowGridState extends State<WaterNowGrid> {
-  String _footerStatus = "Disconnected";
-  bool _isConnected = false;
-  ShadowRelayModel? _model;
-
-  @override
-  void initState() {
-    super.initState();
-    _model = context.read<ShadowRelayModel>();
-    _model?.addOnConnectedCallback(onConnected);
-    _model?.addOnDisconnectedCallback(onDisconnected);
-    () async {
-      AssetBundle bundle = DefaultAssetBundle.of(context);
-      _isConnected = await _model?.mqttConnect(bundle) ?? false;
-    }();
-  }
-
-  @override
-  void dispose() {
-    _model?.removeOnConnectedCallback(onConnected);
-    _model?.removeOnDisconnectedCallback(onDisconnected);
-    _model?.mqttDisconnect();
-    super.dispose();
+  int _columnsFor(double width) {
+    if (width < 360) return 1;
+    if (width < 720) return 2;
+    return 3;
   }
 
   @override
   Widget build(BuildContext context) {
-    final children = _isConnected
-        ? [_body(context), _footer()]
-        : [CircularProgressIndicator(), _footer()];
-    return SafeArea(
-        child: Column(
-      children: children,
-    ));
+    return Consumer<ShadowRelayModel>(
+      builder: (context, model, _) {
+        return Column(
+          children: [
+            _ConnectionBanner(model: model),
+            Expanded(
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  return GridView.builder(
+                    padding: const EdgeInsets.all(AppSpacing.sm),
+                    itemCount: AppConfig.relays.length,
+                    gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                      crossAxisCount: _columnsFor(constraints.maxWidth),
+                      childAspectRatio: 1,
+                    ),
+                    itemBuilder: (context, index) {
+                      final relay = AppConfig.relays[index];
+                      return WaterNowButton(
+                        relay: relay,
+                        reportedState: model.reportedStateFor(relay.relayId),
+                        enabled: model.isConnected,
+                        onToggle: (value) => model.setDesiredState(
+                          relay.relayId,
+                          value ? RelayState.open : RelayState.closed,
+                        ),
+                      );
+                    },
+                  );
+                },
+              ),
+            ),
+          ],
+        );
+      },
+    );
   }
+}
 
-  Widget _body(BuildContext context) {
-    final orientation = MediaQuery.of(context).orientation;
-    var switches = <Widget>[
-      // TODO get this from config somewhere
-      WaterNowButton("Greenhouse", 1, _model!),
-      WaterNowButton("Flowers", 2, _model!),
-      WaterNowButton("Strawberries", 3, _model!),
-      WaterNowButton("Sweetcorn", 4, _model!),
-    ];
-    final gridView = GridView.builder(
-        shrinkWrap: true,
-        itemCount: switches.length,
-        gridDelegate: new SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: (orientation == Orientation.portrait) ? 2 : 3),
-        itemBuilder: (BuildContext context, int index) {
-          return switches[index];
-        });
-    return gridView;
-  }
+class _ConnectionBanner extends StatelessWidget {
+  final ShadowRelayModel model;
 
-  Widget _footer() {
-    return Expanded(child: Text(_footerStatus));
-  }
+  const _ConnectionBanner({required this.model});
 
-  void onConnected() {
-    setState(() {
-      _footerStatus = "Connected";
-      _isConnected = true;
-    });
-  }
-
-  void onDisconnected() {
-    setState(() {
-      _footerStatus = "Disconnected";
-      _isConnected = false;
-    });
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    switch (model.connectionState) {
+      case MqttConnectivity.connected:
+        return const SizedBox.shrink();
+      case MqttConnectivity.connecting:
+        return Container(
+          width: double.infinity,
+          color: colorScheme.secondaryContainer,
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppSpacing.md,
+            vertical: AppSpacing.sm,
+          ),
+          child: Row(
+            children: [
+              SizedBox(
+                height: 16,
+                width: 16,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: colorScheme.onSecondaryContainer,
+                ),
+              ),
+              const SizedBox(width: AppSpacing.md),
+              Text(
+                'Connecting…',
+                style: TextStyle(color: colorScheme.onSecondaryContainer),
+              ),
+            ],
+          ),
+        );
+      case MqttConnectivity.disconnected:
+        return Container(
+          width: double.infinity,
+          color: colorScheme.errorContainer,
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppSpacing.md,
+            vertical: AppSpacing.sm,
+          ),
+          child: Row(
+            children: [
+              Icon(Icons.wifi_off, color: colorScheme.onErrorContainer),
+              const SizedBox(width: AppSpacing.md),
+              Expanded(
+                child: Text(
+                  'Disconnected from broker',
+                  style: TextStyle(color: colorScheme.onErrorContainer),
+                ),
+              ),
+              TextButton(
+                onPressed: () {
+                  final bundle = DefaultAssetBundle.of(context);
+                  model.mqttConnect(bundle);
+                },
+                style: TextButton.styleFrom(
+                  foregroundColor: colorScheme.onErrorContainer,
+                ),
+                child: const Text('Retry'),
+              ),
+            ],
+          ),
+        );
+    }
   }
 }
