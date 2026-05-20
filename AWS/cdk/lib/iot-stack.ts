@@ -28,6 +28,7 @@ export class IOTStack extends Stack {
 
     const logGroup = new logs.LogGroup(this, 'StatusGroup', {
       logGroupName: 'Status',
+      retention: logs.RetentionDays.TWO_YEARS,
     });
 
     new iot_alpha.TopicRule(this, 'LoggingTopicRule', {
@@ -223,7 +224,7 @@ export class IOTStack extends Stack {
         }
       );
 
-      cfnPolicyPrincipalAttachment.addDependsOn(cfnPolicy);
+      cfnPolicyPrincipalAttachment.addDependency(cfnPolicy);
 
       const cfnThingPrincipalAttachment = new iot.CfnThingPrincipalAttachment(this,
         `CfnThingPrincipalAttachment_device_${policyProps.policyName}`,
@@ -233,7 +234,7 @@ export class IOTStack extends Stack {
         }
       );
 
-      cfnThingPrincipalAttachment.addDependsOn(deviceThing);
+      cfnThingPrincipalAttachment.addDependency(deviceThing);
     });
 
     mobileAppPolicyProps.forEach((policyProps) => {
@@ -246,7 +247,7 @@ export class IOTStack extends Stack {
         }
       );
 
-      cfnPolicyPrincipalAttachment.addDependsOn(cfnPolicy);
+      cfnPolicyPrincipalAttachment.addDependency(cfnPolicy);
 
       const cfnThingPrincipalAttachment = new iot.CfnThingPrincipalAttachment(this,
         `CfnThingPrincipalAttachment_mobile_app_${policyProps.policyName}`,
@@ -256,7 +257,7 @@ export class IOTStack extends Stack {
         }
       );
 
-      cfnThingPrincipalAttachment.addDependsOn(mobileAppThing);
+      cfnThingPrincipalAttachment.addDependency(mobileAppThing);
     });
   }
 }
