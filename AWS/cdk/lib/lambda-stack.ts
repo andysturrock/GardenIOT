@@ -33,17 +33,17 @@ export class LambdaStack extends Stack {
         logGroup,
         timeout: Duration.seconds(10),
         memorySize: 256,
+        environment: {
+          TEMPERATURE_HISTORY_TABLE: props.temperatureHistoryTable.tableName,
+        },
       });
     };
 
     const temperatureGetLambda = makeFunction("TemperatureGetLambda", "temperature_get.lambdaHandler");
     const temperaturePostLambda = makeFunction("TemperaturePostLambda", "temperature_post.lambdaHandler");
 
-    // Allow the Lambdas appropriate access to the DyanamoDB tables
     props.temperatureHistoryTable.grantReadData(temperatureGetLambda);
     props.temperatureHistoryTable.grantReadWriteData(temperaturePostLambda);
-    props.lastSensorReadingTable.grantReadData(temperatureGetLambda);
-    props.lastSensorReadingTable.grantReadWriteData(temperaturePostLambda);
 
     const customDomainName = getEnv('CUSTOM_DOMAIN_NAME', false)!;
     const r53ZoneId = getEnv('R53_ZONE_ID', false)!;

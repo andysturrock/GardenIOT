@@ -6,7 +6,6 @@ dotenv.config();
 
 export interface LambdaStackProps extends StackProps {
   readonly temperatureHistoryTable: dynamodb.Table;
-  readonly lastSensorReadingTable: dynamodb.Table;
 }
 
 // Returns value of given environment variable, which may be read from .env file.

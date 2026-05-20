@@ -1,86 +1,78 @@
-import { DynamoDBClient, PutItemCommand, PutItemCommandInput, UpdateItemCommand, UpdateItemCommandInput } from '@aws-sdk/client-dynamodb';
+import { DynamoDBClient, PutItemCommand } from '@aws-sdk/client-dynamodb';
+
+const TABLE = process.env.TEMPERATURE_HISTORY_TABLE!;
+const ddb = new DynamoDBClient({});
+
+interface Reading {
+  sensor_id: number;
+  temperature: number;
+  timestamp?: number;
+}
+
+function parseBody(event: any): Reading[] {
+  if (!event?.body) throw new Error('Empty body');
+  const raw = event.isBase64Encoded
+    ? Buffer.from(event.body, 'base64').toString('utf8')
+    : event.body;
+  const parsed = JSON.parse(raw);
+  if (!Array.isArray(parsed)) throw new Error('Body must be a JSON array');
+  return parsed.map((item, i) => {
+    if (typeof item?.sensor_id !== 'number' || !Number.isFinite(item.sensor_id)) {
+      throw new Error(`Item ${i}: sensor_id must be a number`);
+    }
+    if (typeof item?.temperature !== 'number' || !Number.isFinite(item.temperature)) {
+      throw new Error(`Item ${i}: temperature must be a number`);
+    }
+    if (item.timestamp !== undefined &&
+        (typeof item.timestamp !== 'number' || !Number.isFinite(item.timestamp))) {
+      throw new Error(`Item ${i}: timestamp must be a number if present`);
+    }
+    return item as Reading;
+  });
+}
 
 async function lambdaHandler(event: any): Promise<any> {
+  const requestId = event?.requestContext?.requestId;
+  let readings: Reading[];
   try {
+    readings = parseBody(event);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Bad request';
+    return {
+      statusCode: 400,
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ error: message }),
+    };
+  }
 
+  try {
     const now = Date.now();
-
-    // Check body contains data in correct format.
-    const body = JSON.parse(event.body);
-    const putItemCommandInputs: Array<PutItemCommandInput> = [];
-    const updateItemCommandInput: Array<UpdateItemCommandInput> = [];
-
-    for (const item of body) {
-      if (!('sensor_id' in item)) {
-        return {
-          statusCode: 400,
-          body: `Missing sensor_id field`
-        }
-      }
-      if (!('temperature' in item)) {
-        return {
-          statusCode: 400,
-          body: `Missing temperature field`
-        }
-      }
-
-      // Params for inserting into the history table
-      putItemCommandInputs.push({
-        TableName: "TemperatureHistory",
-        Item: {
-          timestamp: { N: `${now}` },
-          sensor_id: { N: `${item.sensor_id}` },
-          temperature: { N: `${item.temperature}` }
-        },
-      });
-
-      // And for the last value table
-      updateItemCommandInput.push({
-        TableName: 'LastSensorReading',
-        Key: { "sensor_type": { S: 'temperature' }, "sensor_id": { N: `${item.sensor_id}` }, },
-        UpdateExpression: "set #value = :value, #timestamp = :timestamp",
-        ExpressionAttributeNames: { "#value": "value", "#timestamp": "timestamp" },
-        ExpressionAttributeValues: {
-          ":timestamp": { "N": `${now}` },
-          ":value": { "N": `${item.temperature}` }
-        }
-      });
-    }
-
-    const ddbClient = new DynamoDBClient({});
-
     let count = 0;
-    // First insert the reading into the history table
-    for (const param of putItemCommandInputs) {
-      // First insert the reading into the history table
-      console.info(`Inserting: ${JSON.stringify(param)}`);
-      // TODO - Turn this on when in production
-      // console.debug("TODO - Skipping inserting into history table!!!")
-      await ddbClient.send(new PutItemCommand(param));
+    for (const reading of readings) {
+      const timestamp = reading.timestamp ?? now;
+      await ddb.send(new PutItemCommand({
+        TableName: TABLE,
+        Item: {
+          sensor_id: { N: `${reading.sensor_id}` },
+          timestamp: { N: `${timestamp}` },
+          temperature: { N: `${reading.temperature}` },
+        },
+      }));
       ++count;
     }
-    // Then update the last sensor reading table
-    for (const param of updateItemCommandInput) {
-      // First insert the reading into the history table
-      console.info(`Inserting: ${JSON.stringify(param)}`);
-      await ddbClient.send(new UpdateItemCommand(param));
-    }
-
     return {
       statusCode: 200,
-      body: `${JSON.stringify({ "InsertCount": `${count}` })}`
-    }
-  }
-  catch (err) {
-    if(err instanceof Error) {
-      console.error(`Error: ${err.stack}`);
-    } else {
-      console.error(`Error: ${JSON.stringify(err)}`);
-    }
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ insertCount: count }),
+    };
+  } catch (err) {
+    const detail = err instanceof Error ? err.stack : JSON.stringify(err);
+    console.error(`temperature_post error (requestId=${requestId}): ${detail}`);
     return {
       statusCode: 500,
-      body: "Error"
-    }
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ error: 'Internal error', requestId }),
+    };
   }
 }
 

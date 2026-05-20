@@ -4,39 +4,21 @@ import * as dynamodb from 'aws-cdk-lib/aws-dynamodb';
 
 export class DynamoDBStack extends Stack {
   public readonly temperatureHistoryTable: dynamodb.Table;
-  public readonly lastSensorReadingTable: dynamodb.Table;
 
   constructor(scope: Construct, id: string, props?: StackProps) {
     super(scope, id, props);
 
-    this.temperatureHistoryTable = new dynamodb.Table(this, 'TemperatureHistoryTable', {
-      tableName: "TemperatureHistory",
-      partitionKey: { name: 'timestamp', type: dynamodb.AttributeType.NUMBER },
-      sortKey: { name: "sensor_id", type: dynamodb.AttributeType.NUMBER },
-      readCapacity: 1,
-      writeCapacity: 1,
-      removalPolicy: RemovalPolicy.DESTROY
+    // Partition by sensor_id so all readings for one sensor live in the
+    // same partition; sort by timestamp so we can `Query` with
+    // ScanIndexForward=false Limit=1 for the latest reading, or range
+    // over a time window without a Scan. Logical ID is intentionally
+    // TableV2 — the original TableV1 had the keys backwards and was
+    // removed in a separate cleanup deploy.
+    this.temperatureHistoryTable = new dynamodb.Table(this, 'TemperatureHistoryTableV2', {
+      partitionKey: { name: 'sensor_id', type: dynamodb.AttributeType.NUMBER },
+      sortKey: { name: 'timestamp', type: dynamodb.AttributeType.NUMBER },
+      billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
+      removalPolicy: RemovalPolicy.DESTROY,
     });
-    let readScaling = this.temperatureHistoryTable.autoScaleReadCapacity({ minCapacity: 1, maxCapacity: 10 });
-    readScaling.scaleOnUtilization({ targetUtilizationPercent: 70 });
-    let writeScaling = this.temperatureHistoryTable.autoScaleWriteCapacity({ minCapacity: 1, maxCapacity: 10 });
-    writeScaling.scaleOnUtilization({ targetUtilizationPercent: 70 });
-
-    this.lastSensorReadingTable = new dynamodb.Table(this, 'LastSensorReadingTable', {
-      tableName: "LastSensorReading",
-      partitionKey: { name: 'sensor_type', type: dynamodb.AttributeType.STRING },
-      sortKey: { name: "sensor_id", type: dynamodb.AttributeType.NUMBER },
-      readCapacity: 1,
-      writeCapacity: 1,
-      removalPolicy: RemovalPolicy.DESTROY
-    });
-    readScaling = this.lastSensorReadingTable.autoScaleReadCapacity({ minCapacity: 1, maxCapacity: 10 });
-    readScaling.scaleOnUtilization({ targetUtilizationPercent: 70 });
-    writeScaling = this.lastSensorReadingTable.autoScaleWriteCapacity({ minCapacity: 1, maxCapacity: 10 });
-    writeScaling.scaleOnUtilization({ targetUtilizationPercent: 70 });
-
-    // Create exports from the CF template so that CF knows that other stacks depend on this stack.
-    this.exportValue(this.temperatureHistoryTable.tableArn);
-    this.exportValue(this.lastSensorReadingTable.tableArn);
   }
 }
