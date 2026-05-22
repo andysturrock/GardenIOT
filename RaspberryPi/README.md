@@ -55,17 +55,17 @@ MOCK_GPIO=1 npm run start:dev  # ts-node, requires a .env
 
 ```bash
 # 1. Clone the repo somewhere the pm2 user can read+write.
-sudo -u pm2 git clone https://github.com/andysturrock/GardenIOT.git ~pm2/git_repos/GardenIOT
+sudo -u pm2 git clone https://github.com/andysturrock/GardenIOT.git /opt/pm2_programs/git_repos/GardenIOT
 
 # 2. Put the .env file at RaspberryPi/.env (it's gitignored, must be created manually).
-sudo -u pm2 cp /path/to/your.env ~pm2/git_repos/GardenIOT/RaspberryPi/.env
+sudo -u pm2 cp /path/to/your.env /opt/pm2_programs/git_repos/GardenIOT/RaspberryPi/.env
 
 # 3. Build once + start pm2 + register at boot.
-sudo -u pm2 bash -c 'cd ~/git_repos/GardenIOT/RaspberryPi && npm ci && npm run build'
+sudo -u pm2 bash -c 'cd /opt/pm2_programs/git_repos/GardenIOT/RaspberryPi && npm ci && npm run build'
 sudo mkdir -p /opt/pm2_programs/GardenIOT /var/log/gardeniot
 sudo chown pm2:pm2 /opt/pm2_programs/GardenIOT /var/log/gardeniot
-sudo -u pm2 rsync -a --delete ~pm2/git_repos/GardenIOT/RaspberryPi/dist/ /opt/pm2_programs/GardenIOT/
-sudo -u pm2 cp ~pm2/git_repos/GardenIOT/RaspberryPi/ecosystem.config.js /opt/pm2_programs/GardenIOT/
+sudo -u pm2 rsync -a --delete /opt/pm2_programs/git_repos/GardenIOT/RaspberryPi/dist/ /opt/pm2_programs/GardenIOT/
+sudo -u pm2 cp /opt/pm2_programs/git_repos/GardenIOT/RaspberryPi/ecosystem.config.js /opt/pm2_programs/GardenIOT/
 
 sudo -u pm2 pm2 start /opt/pm2_programs/GardenIOT/ecosystem.config.js
 sudo -u pm2 pm2 save
@@ -77,7 +77,7 @@ sudo -u pm2 pm2 set pm2-logrotate:max_size 10M
 sudo -u pm2 pm2 set pm2-logrotate:retain 7
 
 # 5. Install the systemd timer that pulls + redeploys every 5 mins.
-sudo cp ~pm2/git_repos/GardenIOT/RaspberryPi/systemd/gardeniot-deploy.* /etc/systemd/system/
+sudo cp /opt/pm2_programs/git_repos/GardenIOT/RaspberryPi/systemd/gardeniot-deploy.* /etc/systemd/system/
 sudo systemctl daemon-reload
 sudo systemctl enable --now gardeniot-deploy.timer
 ```
@@ -107,5 +107,5 @@ pm2 logs GardenIOT --lines 50
 ### Manual deploy (skipping the timer)
 
 ```bash
-~/git_repos/GardenIOT/RaspberryPi/deploy.sh
+/opt/pm2_programs/git_repos/GardenIOT/RaspberryPi/deploy.sh
 ```

@@ -9,7 +9,7 @@ Type=oneshot
 User=pm2
 Group=pm2
 # Path to the checkout's deploy.sh. Adjust to match your layout.
-ExecStart=/home/pm2/git_repos/GardenIOT/RaspberryPi/deploy.sh
+ExecStart=/opt/pm2_programs/git_repos/GardenIOT/RaspberryPi/deploy.sh
 # Capture output in the journal under the unit name.
 StandardOutput=journal
 StandardError=journal
