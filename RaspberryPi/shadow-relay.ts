@@ -5,8 +5,6 @@ import mqttLogger from './mqtt-logger';
 import Relay from './relay';
 import { RelayId } from './relay-id';
 
-const gpio = require('rpi-gpio').promise;
-
 const logger = mqttLogger.logger;
 
 class ShadowRelay extends Relay {
@@ -14,9 +12,11 @@ class ShadowRelay extends Relay {
   private thingName: string;
   private version = 0;
   // qos to use for all operations.
-  private qos = mqtt.QoS.AtMostOnce;
-  // Timeout any externally triggered opens after 5 mins.
+  private qos = mqtt.QoS.AtLeastOnce;
+  // Auto-close externally-opened relays after 5 mins as a safety net.
   private openTimeout = 1000 * 60 * 5;
+  // Handle for the safety timeout so we can cancel it on close.
+  private safetyTimer: ReturnType<typeof setTimeout> | undefined;
 
   constructor(id : RelayId, awsConnection: AWSConnection) {
     super(id);
@@ -25,57 +25,78 @@ class ShadowRelay extends Relay {
   }
 
   async init() {
-    // Must subscribe first so we get the initial events from super.init()
+    // Subscribe first so we get the initial events from super.init().
     await this.subscribe();
     await super.init();
   }
 
   async dispose() {
+    this.cancelSafetyTimer();
     await super.dispose();
     await this.unsubscribe();
   }
 
   async open() {
-    // Open the relay directly.
-    // Do this rather than waiting to respond to the desired message
-    // in case our connection to AWS has failed.
+    // Open the relay directly. Do this rather than waiting to respond to
+    // the desired message in case our connection to AWS has failed.
     await super.open();
-    // Update the shadow state.
-    // This will cause the relay to be opened again, but that's OK.
+    // Update the shadow state. This will cause the relay to be opened
+    // again, but that's OK.
     await this.publishDesiredShadowUpdate('open');
   }
 
   async close() {
-    // Close the relay directly.
-    // Do this rather than waiting to respond to the desired message
-    // in case our connection to AWS has failed.
     await super.close();
-    // Update the shadow state.
-    // This will cause the relay to be closed again, but that's OK.
     await this.publishDesiredShadowUpdate('closed');
   }
 
+  /**
+   * Hard-close the relay regardless of the desired state. Used by the
+   * safety timer and shutdown handlers. Publishes BOTH reported=closed
+   * AND desired=closed in a single shadow update so no fresh delta is
+   * generated that would re-trigger _open.
+   */
+  async forceClose() {
+    this.cancelSafetyTimer();
+    await super.close();
+    await this.publishForceCloseShadowUpdate();
+  }
+
+  /**
+   * Synchronous best-effort GPIO close, no MQTT. For uncaughtException /
+   * unhandledRejection handlers where the process is about to die.
+   */
   async emergencyClose() {
+    this.cancelSafetyTimer();
     await super.close();
   }
 
   // Called in response to a desired message.
   private async _open() {
-    setTimeout(this.close.bind(this), this.openTimeout);
+    this.cancelSafetyTimer();
+    this.safetyTimer = setTimeout(() => { void this.forceClose(); }, this.openTimeout);
     await super.open();
     await this.publishReportedShadowUpdate('open');
   }
 
   // Called in response to a desired message.
   private async _close() {
+    this.cancelSafetyTimer();
     await super.close();
     await this.publishReportedShadowUpdate('closed');
+  }
+
+  private cancelSafetyTimer() {
+    if (this.safetyTimer) {
+      clearTimeout(this.safetyTimer);
+      this.safetyTimer = undefined;
+    }
   }
 
   private async publishDesiredShadowUpdate(openClosed: string) {
     try {
       const topic = `$aws/things/${this.thingName}/shadow/name/${this.name}/update`;
-      const stateReportedDoc = 
+      const stateReportedDoc =
       {
         "state": {
             "desired": {
@@ -97,7 +118,7 @@ class ShadowRelay extends Relay {
   private async publishReportedShadowUpdate(openClosed: string) {
     try {
       const topic = `$aws/things/${this.thingName}/shadow/name/${this.name}/update`;
-      const stateReportedDoc = 
+      const stateReportedDoc =
       {
         "state": {
             "reported": {
@@ -116,8 +137,28 @@ class ShadowRelay extends Relay {
     }
   }
 
+  private async publishForceCloseShadowUpdate() {
+    try {
+      const topic = `$aws/things/${this.thingName}/shadow/name/${this.name}/update`;
+      const stateDoc = {
+        "state": {
+            "reported": { "open_closed": "closed" },
+            "desired":  { "open_closed": "closed" }
+        }
+      };
+      await this._awsConnection.publish(topic, stateDoc, this.qos);
+    }
+    catch(error) {
+      if(error instanceof Error) {
+        logger.error(`Error: ${error.stack}`);
+      } else {
+        logger.error(`Error: ${JSON.stringify(error)}`);
+      }
+    }
+  }
+
   private debugLog(method: string, topic: string, payload: ArrayBuffer) {
-    
+
     const json = {
       method: method,
       topic: topic,
@@ -142,29 +183,44 @@ class ShadowRelay extends Relay {
   private async onDelta(topic: string, payload: ArrayBuffer, dup: boolean, qos: mqtt.QoS, retain: boolean) : Promise<void> {
     this.debugLog('onDelta', topic, payload);
 
-    const decodedPayload = JSON.parse(this.decodePayload(payload));
+    let decodedPayload: any;
+    try {
+      decodedPayload = JSON.parse(this.decodePayload(payload));
+    } catch (e) {
+      logger.warn(`Failed to parse delta payload on ${topic}: ${e}`);
+      return;
+    }
+
     const version = decodedPayload?.version;
-    if(version < this.version) {
+    if (typeof version !== 'number') {
+      logger.warn(`Delta on ${topic} missing version; ignoring`);
+      return;
+    }
+    if (version < this.version) {
       logger.debug(`Discarding delta with lower version (current version = ${this.version}, delta version = ${version}).`);
       return;
     }
-    logger.debug(`onDelta current version = ${this.version}, delta version = ${version}`)
+    logger.debug(`onDelta current version = ${this.version}, delta version = ${version}`);
 
-    if(decodedPayload?.state?.open_closed === 'open') {
+    const desired = decodedPayload?.state?.open_closed;
+    if (desired === 'open') {
       await this._open();
-    } else if(decodedPayload?.state?.open_closed === 'closed') {
+    } else if (desired === 'closed') {
       await this._close();
-    }
-    else {
-      logger.warn(`Unknown delta relay state`)
+    } else {
+      logger.warn(`Unknown delta relay state: ${desired}`);
     }
   }
 
   private onDocuments(topic: string, payload: ArrayBuffer, dup: boolean, qos: mqtt.QoS, retain: boolean) : void {
     this.debugLog('onDocuments', topic, payload);
-    const decodedPayload = JSON.parse(this.decodePayload(payload));
-    this.version = decodedPayload?.current?.version;
-    logger.debug(`onDocs current version = ${this.version}`)
+    try {
+      const decodedPayload = JSON.parse(this.decodePayload(payload));
+      this.version = decodedPayload?.current?.version ?? this.version;
+      logger.debug(`onDocs current version = ${this.version}`);
+    } catch (e) {
+      logger.warn(`Failed to parse documents payload on ${topic}: ${e}`);
+    }
   }
 
   private async subscribe() {

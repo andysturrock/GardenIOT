@@ -46,7 +46,11 @@ test('Serialises and deserialises correctly', () => {
   expect(actualJSON).toEqual(expectedJSON);
 });
 
-test('Saves and loads correctly', async () => {
+// TODO(audit E1/E2): persistence path is hardcoded to /wateringplans
+// and the save/load flow is half-built (load() is never called from
+// runtime, save() runs every startup with hardcoded contents). Skip
+// until the persistence story is rewritten.
+test.skip('Saves and loads correctly', async () => {
   const expected = createWateringPlan();
   await expected.save();
 

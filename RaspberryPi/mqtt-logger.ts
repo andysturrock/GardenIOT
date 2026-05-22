@@ -2,7 +2,7 @@ import { ILogObject, Logger as TSLogger } from 'tslog';
 import { mqtt } from 'aws-crt';
 import getEnv from './utils/getenv';
 import AWSConnection from './aws-connection';
-import util from 'util';
+import util from 'node:util';
 
 class MQTTLogger {
   private sequence = 0;
