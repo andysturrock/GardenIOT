@@ -69,7 +69,9 @@ timer). The script is idempotent — safe to re-run if something needs
 adjusting.
 
 ```bash
-# 1. Clone the repo into the pm2 user's home.
+# 1. Clone the repo into the pm2 user's home. The git_repos parent dir
+#    has to exist first — git clone won't mkdir -p for you.
+sudo -u pm2 mkdir -p ~pm2/git_repos
 sudo -u pm2 git clone https://github.com/andysturrock/GardenIOT.git ~pm2/git_repos/GardenIOT
 
 # 2. Put the .env file at RaspberryPi/.env (it's gitignored, must be

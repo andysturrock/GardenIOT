@@ -35,7 +35,12 @@ fail() { printf '[bootstrap] ERROR: %s\n' "$*" >&2; exit 1; }
 
 # ---- 0. Preflight -----------------------------------------------------------
 
-[[ -d "$PI_DIR" ]] || fail "$PI_DIR doesn't exist. Clone the repo to $REPO_DIR first."
+if [[ ! -d "$PI_DIR" ]]; then
+  printf '[bootstrap] ERROR: %s doesn'\''t exist. Clone the repo first:\n' "$PI_DIR" >&2
+  printf '[bootstrap]   sudo -u %s mkdir -p %s\n' "$PM2_USER" "$(dirname "$REPO_DIR")" >&2
+  printf '[bootstrap]   sudo -u %s git clone https://github.com/andysturrock/GardenIOT.git %s\n' "$PM2_USER" "$REPO_DIR" >&2
+  exit 1
+fi
 
 if ! command -v sudo >/dev/null 2>&1; then
   fail "sudo not available. This script needs root privileges for systemd + dir setup."
