@@ -6,7 +6,11 @@
 #   - RaspberryPi/.env exists with valid CLIENT_ID, ENDPOINT, CERTFILE,
 #     KEYFILE, CAFILE.
 #   - pm2 is already installed globally for the pm2 user.
-#   - You're running this with a user that can sudo.
+#   - You're running this AS YOUR NORMAL SUDO-CAPABLE USER, not as the
+#     pm2 user. The script needs root for /var/log, /etc/systemd/system,
+#     systemctl, and to register pm2's own systemd startup unit — the
+#     pm2 user typically can't sudo. The script uses sudo -u pm2 for the
+#     bits that need to run as pm2 (npm ci, npm run build, pm2 commands).
 #
 # Idempotent: safe to re-run. Detects whether GardenIOT is already in
 # pm2 / pm2 startup unit is installed / systemd timer exists and skips
@@ -21,10 +25,23 @@ if ! id "$PM2_USER" >/dev/null 2>&1; then
   exit 1
 fi
 
+CURRENT_USER=$(id -un)
+if [[ "$CURRENT_USER" == "$PM2_USER" ]]; then
+  cat >&2 <<EOF
+[bootstrap] ERROR: don't run this as $PM2_USER. The pm2 user typically
+[bootstrap]        can't sudo, and the script needs root for
+[bootstrap]        /var/log + /etc/systemd/system + systemctl setup.
+[bootstrap]        Switch back to your normal user and re-run:
+[bootstrap]          exit
+[bootstrap]          $0
+EOF
+  exit 1
+fi
+
 PM2_HOME=$(getent passwd "$PM2_USER" | cut -d: -f6)
 
 REPO_DIR="${REPO_DIR:-$PM2_HOME/git_repos/GardenIOT}"
-DEPLOY_DIR="${DEPLOY_DIR:-$PM2_HOME/GardenIOT}"
+DEPLOY_DIR="${DEPLOY_DIR:-/opt/gardeniot}"
 LOG_DIR="${LOG_DIR:-/var/log/gardeniot}"
 
 PI_DIR="$REPO_DIR/RaspberryPi"

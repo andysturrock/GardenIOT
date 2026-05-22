@@ -5,13 +5,13 @@
 #
 # Env var overrides:
 #   REPO_DIR    path to the git checkout (default: $HOME/git_repos/GardenIOT)
-#   DEPLOY_DIR  destination for the built artefact (default: $HOME/GardenIOT)
+#   DEPLOY_DIR  destination for the built artefact (default: /opt/gardeniot)
 #   BRANCH      branch to track (default: main)
 
 set -euo pipefail
 
 REPO_DIR="${REPO_DIR:-$HOME/git_repos/GardenIOT}"
-DEPLOY_DIR="${DEPLOY_DIR:-$HOME/GardenIOT}"
+DEPLOY_DIR="${DEPLOY_DIR:-/opt/gardeniot}"
 BRANCH="${BRANCH:-main}"
 
 PI_DIR="$REPO_DIR/RaspberryPi"

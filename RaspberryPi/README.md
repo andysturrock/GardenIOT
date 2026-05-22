@@ -51,15 +51,19 @@ MOCK_GPIO=1 npm run start:dev  # ts-node, requires a .env
 
 ## Deploying to the Pi
 
-Layout (paths shown relative to the pm2 user's home dir — `~` below
-refers to whatever `~pm2` is, e.g. `/opt/pm2`):
+Layout:
 
-| What | Where |
-|------|-------|
-| Git checkout (source) | `~/git_repos/GardenIOT` |
-| Deployed artefact (compiled JS + `node_modules` + `ecosystem.config.js`) | `~/GardenIOT` |
-| pm2 logs | `/var/log/gardeniot/` |
-| Auto-deploy systemd units | `/etc/systemd/system/gardeniot-deploy.{service,timer}` |
+| What | Where | Owner |
+|------|-------|-------|
+| Git checkout (source) | `~pm2/git_repos/GardenIOT` | pm2 |
+| Deployed artefact (compiled JS + `node_modules` + `ecosystem.config.js`) | `/opt/gardeniot/` | pm2 |
+| pm2 logs | `/var/log/gardeniot/` | pm2 |
+| Auto-deploy systemd units | `/etc/systemd/system/gardeniot-deploy.{service,timer}` | root |
+
+The repo lives under pm2's home (not the operator's home) because the
+auto-deploy systemd timer runs as `User=pm2` — pm2 needs write access
+to the checkout to `git pull`. The bootstrap is run by the operator
+(see below).
 
 ### One-off setup
 
@@ -67,6 +71,10 @@ Three manual steps, then [`bootstrap.sh`](bootstrap.sh) handles the rest
 (build, pm2 setup, pm2 startup unit, log rotation, systemd auto-deploy
 timer). The script is idempotent — safe to re-run if something needs
 adjusting.
+
+Run all three steps as your normal (sudo-capable) account, NOT as the
+pm2 user — bootstrap.sh needs sudo for the `/var/log` and
+`/etc/systemd/system` setup, and the pm2 user usually can't sudo.
 
 ```bash
 # 1. Clone the repo into the pm2 user's home. The git_repos parent dir
@@ -91,7 +99,7 @@ everything is anchored at the pm2 user's home dir (looked up via
 ### Day-to-day
 
 Push to `main`. Within ~5 minutes the timer fires, [`deploy.sh`](deploy.sh)
-fetches the new commit, builds, rsyncs to `~pm2/GardenIOT/`, and
+fetches the new commit, builds, rsyncs to `/opt/gardeniot/`, and
 `pm2 reload`s the process. pm2 sends SIGINT first so the
 [`index.ts`](index.ts) shutdown handler has 10 seconds (`kill_timeout`
 in [`ecosystem.config.js`](ecosystem.config.js)) to force-close every
@@ -106,7 +114,7 @@ journalctl -fu gardeniot-deploy.service
 To check what version is currently deployed:
 
 ```bash
-sudo -u pm2 cat ~pm2/GardenIOT/version.json
+cat /opt/gardeniot/version.json
 sudo -u pm2 pm2 logs GardenIOT --lines 50
 ```
 
