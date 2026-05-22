@@ -59,4 +59,36 @@ void main() {
       },
     );
   });
+
+  group('ShadowMessage equality + hashing', () {
+    test('two messages with identical fields are equal and share a hashCode', () {
+      const a = ShadowMessage(reported: RelayState.open, desired: RelayState.closed);
+      const b = ShadowMessage(reported: RelayState.open, desired: RelayState.closed);
+      expect(a, equals(b));
+      expect(a.hashCode, b.hashCode);
+    });
+
+    test('messages differing in reported are not equal', () {
+      const a = ShadowMessage(reported: RelayState.open, desired: RelayState.closed);
+      const b = ShadowMessage(reported: RelayState.closed, desired: RelayState.closed);
+      expect(a, isNot(equals(b)));
+    });
+
+    test('messages differing in desired are not equal', () {
+      const a = ShadowMessage(reported: RelayState.open, desired: RelayState.open);
+      const b = ShadowMessage(reported: RelayState.open, desired: RelayState.closed);
+      expect(a, isNot(equals(b)));
+    });
+
+    test('a ShadowMessage is not equal to a non-ShadowMessage', () {
+      const a = ShadowMessage(reported: RelayState.open);
+      // ignore: unrelated_type_equality_checks
+      expect(a == 42, isFalse);
+    });
+
+    test('toJsonString round-trips for both enum values', () {
+      expect(RelayState.fromJsonString(RelayState.open.toJsonString()), RelayState.open);
+      expect(RelayState.fromJsonString(RelayState.closed.toJsonString()), RelayState.closed);
+    });
+  });
 }

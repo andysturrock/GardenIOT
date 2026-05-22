@@ -47,19 +47,15 @@ class AppTheme {
   }
 }
 
-class AppSpacing {
+abstract class AppSpacing {
   static const double xs = 4;
   static const double sm = 8;
   static const double md = 16;
   static const double lg = 24;
-
-  const AppSpacing._();
 }
 
-class AppRadii {
+abstract class AppRadii {
   static const double sm = 8;
   static const double md = 16;
   static const double lg = 24;
-
-  const AppRadii._();
 }

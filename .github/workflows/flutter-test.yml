@@ -1,0 +1,58 @@
+name: flutter-test
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'UI/garden_iot/**'
+      - '.github/workflows/flutter-test.yml'
+  pull_request:
+    paths:
+      - 'UI/garden_iot/**'
+      - '.github/workflows/flutter-test.yml'
+  workflow_dispatch:
+
+defaults:
+  run:
+    working-directory: UI/garden_iot
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - run: flutter pub get
+
+      # `flutter test --coverage` builds the asset bundle, which fails
+      # without the prod cert/key files. Provide empty placeholders;
+      # the tests never read the contents.
+      - name: Stub cert assets for asset-bundle build
+        run: |
+          mkdir -p assets/certs
+          : > assets/certs/AmazonRootCA1.pem
+          : > assets/certs/5eb3ad97272b2323f222e6efad963ec376e28fc2ef344f17d5e858a11bffe96f-certificate.pem.crt
+          : > assets/certs/5eb3ad97272b2323f222e6efad963ec376e28fc2ef344f17d5e858a11bffe96f-private.pem.key
+
+      - name: Analyze
+        run: flutter analyze
+
+      - name: Test with coverage
+        run: flutter test --coverage
+
+      - name: Enforce >=95% line coverage (excl. shadow_relay_model.dart)
+        run: python3 tool/check_coverage.py --min 95
+
+      - name: Upload coverage report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: flutter-coverage
+          path: UI/garden_iot/coverage
+          retention-days: 14

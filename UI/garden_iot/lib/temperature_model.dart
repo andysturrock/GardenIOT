@@ -28,13 +28,20 @@ class TemperatureModel with ChangeNotifier {
   final Duration _pollPeriod;
   final LogModel _logModel;
   final List<int> _sensorIds;
+  final http.Client _httpClient;
 
   Map<int, TemperatureReading> _readings = <int, TemperatureReading>{};
   Timer? _timer;
   bool _disposed = false;
 
-  TemperatureModel(this._pollPeriod, this._logModel)
-      : _sensorIds = AppConfig.sensors.map((s) => s.sensorId).toList(growable: false) {
+  /// [httpClient] can be injected for tests; defaults to a fresh
+  /// `http.Client()` for production.
+  TemperatureModel(
+    this._pollPeriod,
+    this._logModel, {
+    http.Client? httpClient,
+  })  : _sensorIds = AppConfig.sensors.map((s) => s.sensorId).toList(growable: false),
+        _httpClient = httpClient ?? http.Client() {
     if (_sensorIds.isEmpty) return;
     unawaited(_poll());
     _timer = Timer.periodic(_pollPeriod, (_) => _poll());
@@ -53,7 +60,7 @@ class TemperatureModel with ChangeNotifier {
         AppConfig.temperatureApiPath,
         {for (final id in _sensorIds) 'sensor_id$id': ''},
       );
-      final response = await http.get(uri);
+      final response = await _httpClient.get(uri);
       if (_disposed) return;
       if (response.statusCode != 200) {
         _logModel.log('Temperature fetch failed: HTTP ${response.statusCode}');
@@ -76,6 +83,7 @@ class TemperatureModel with ChangeNotifier {
   void dispose() {
     _disposed = true;
     _timer?.cancel();
+    _httpClient.close();
     super.dispose();
   }
 }

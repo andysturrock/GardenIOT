@@ -4,7 +4,10 @@ import 'package:garden_iot/theme/app_theme.dart';
 import 'package:garden_iot/utils/env.dart';
 
 class DialsGrid extends StatelessWidget {
-  const DialsGrid({super.key});
+  /// Lets tests pass a custom sensor list. Defaults to AppConfig.sensors.
+  const DialsGrid({super.key, this.sensors = AppConfig.sensors});
+
+  final List<SensorConfig> sensors;
 
   int _columnsFor(double width) {
     if (width < 360) return 1;
@@ -14,7 +17,6 @@ class DialsGrid extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const sensors = AppConfig.sensors;
     if (sensors.isEmpty) {
       return Center(
         child: Text(

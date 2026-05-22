@@ -30,7 +30,7 @@ class RelayConfig {
 
 enum IconCodepoint { spa, localFlorist, agriculture, grass }
 
-class AppConfig {
+abstract class AppConfig {
   static const String rootCAPath = 'assets/certs/AmazonRootCA1.pem';
 
   static const String deviceCertPath =
@@ -62,6 +62,4 @@ class AppConfig {
     RelayConfig(name: 'Strawberries', relayId: 3, icon: IconCodepoint.agriculture),
     RelayConfig(name: 'Sweetcorn', relayId: 4, icon: IconCodepoint.grass),
   ];
-
-  const AppConfig._();
 }
