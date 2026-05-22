@@ -130,13 +130,25 @@ sudo -u "$PM2_USER" bash -c "cd '$PI_DIR' && cat > '$DEPLOY_DIR/version.json' <<
 EOF"
 
 # ---- 5. pm2: start or reload (idempotent) -----------------------------------
+#
+# `pm2 reload <ecosystem>` doesn't re-anchor an existing process's cwd
+# or script path — it just restarts in place. If the deploy dir has
+# moved since the last registration, we have to delete + start fresh.
 
-if sudo -u "$PM2_USER" pm2 describe GardenIOT >/dev/null 2>&1; then
-  log "GardenIOT already running in pm2 -> reloading"
-  sudo -u "$PM2_USER" pm2 reload "$DEPLOY_DIR/ecosystem.config.js" --update-env
-else
-  log "Starting GardenIOT in pm2"
+CURRENT_CWD=$(sudo -u "$PM2_USER" pm2 jlist 2>/dev/null \
+  | python3 -c "import sys,json; apps=json.load(sys.stdin); print(next((a['pm2_env']['pm_cwd'] for a in apps if a['name']=='GardenIOT'), ''))" \
+  2>/dev/null || true)
+
+if [[ -z "$CURRENT_CWD" ]]; then
+  log "Starting GardenIOT in pm2 (not currently registered)"
   sudo -u "$PM2_USER" pm2 start "$DEPLOY_DIR/ecosystem.config.js"
+elif [[ "$CURRENT_CWD" != "$DEPLOY_DIR" ]]; then
+  log "GardenIOT registered at stale cwd ($CURRENT_CWD); deleting + starting fresh at $DEPLOY_DIR"
+  sudo -u "$PM2_USER" pm2 delete GardenIOT
+  sudo -u "$PM2_USER" pm2 start "$DEPLOY_DIR/ecosystem.config.js"
+else
+  log "GardenIOT already running from $DEPLOY_DIR -> reloading"
+  sudo -u "$PM2_USER" pm2 reload "$DEPLOY_DIR/ecosystem.config.js" --update-env
 fi
 
 sudo -u "$PM2_USER" pm2 save

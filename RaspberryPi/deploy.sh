@@ -61,8 +61,24 @@ rsync -a --delete dist/ "$DEPLOY_DIR/"
 # Copy the ecosystem config alongside the build so pm2 reload finds it.
 cp ecosystem.config.js "$DEPLOY_DIR/"
 
-log "Reloading pm2"
-pm2 reload "$DEPLOY_DIR/ecosystem.config.js" --update-env
+# `pm2 reload <ecosystem>` doesn't re-anchor an existing process's cwd
+# or script path — it just restarts in place. If the deploy dir has
+# moved since the last registration, we have to delete + start fresh.
+CURRENT_CWD=$(pm2 jlist 2>/dev/null \
+  | python3 -c "import sys,json; apps=json.load(sys.stdin); print(next((a['pm2_env']['pm_cwd'] for a in apps if a['name']=='GardenIOT'), ''))" \
+  2>/dev/null || true)
+
+if [[ -z "$CURRENT_CWD" ]]; then
+  log "GardenIOT not registered in pm2 -> starting"
+  pm2 start "$DEPLOY_DIR/ecosystem.config.js"
+elif [[ "$CURRENT_CWD" != "$DEPLOY_DIR" ]]; then
+  log "GardenIOT registered at stale cwd ($CURRENT_CWD); deleting + starting fresh at $DEPLOY_DIR"
+  pm2 delete GardenIOT
+  pm2 start "$DEPLOY_DIR/ecosystem.config.js"
+else
+  log "Reloading pm2"
+  pm2 reload "$DEPLOY_DIR/ecosystem.config.js" --update-env
+fi
 pm2 save
 
 log "Deploy of ${REMOTE:0:8} complete"
