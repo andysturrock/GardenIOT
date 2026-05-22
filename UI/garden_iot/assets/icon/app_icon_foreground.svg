@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <!-- No background — adaptive icon supplies it. Drop scaled to ~65% so
+       it sits inside Android's adaptive-icon safe zone (66% inset). -->
+  <g transform="translate(512 512) scale(0.65) translate(-512 -512)">
+    <path d="M 512 200
+             C 332 360, 312 540, 312 620
+             A 200 200 0 0 0 712 620
+             C 712 540, 692 360, 512 200 Z"
+          fill="white"/>
+  </g>
+</svg>

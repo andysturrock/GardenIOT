@@ -22,6 +22,20 @@ dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^4.0.0
+  flutter_launcher_icons: ^0.14.0
+
+# Source icons live in assets/icon/; they're not bundled as runtime
+# assets, just consumed by `dart run flutter_launcher_icons` to generate
+# the platform-specific PNG sets under android/ and ios/. Re-run that
+# command any time the source icons change.
+flutter_launcher_icons:
+  android: "ic_launcher"
+  ios: true
+  remove_alpha_ios: true
+  image_path: "assets/icon/app_icon.png"
+  adaptive_icon_background: "#2E7D32"
+  adaptive_icon_foreground: "assets/icon/app_icon_foreground.png"
+  min_sdk_android: 21
 
 flutter:
   uses-material-design: true

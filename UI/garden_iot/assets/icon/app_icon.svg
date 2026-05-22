@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <!-- Background: AppTheme.seedColor (M3 leafy green) -->
+  <rect width="1024" height="1024" fill="#2E7D32"/>
+
+  <!-- Water drop: smooth teardrop centred at (512, 540).
+       Apex at (512, 200). The two cubic curves on each side meet the
+       bottom semicircle tangentially, giving a clean teardrop with no
+       visible shoulders. -->
+  <path d="M 512 200
+           C 332 360, 312 540, 312 620
+           A 200 200 0 0 0 712 620
+           C 712 540, 692 360, 512 200 Z"
+        fill="white"/>
+</svg>
