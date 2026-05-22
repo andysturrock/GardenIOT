@@ -97,5 +97,17 @@
     /* Completeness */
     // "skipDefaultLibCheck": true,                      /* Skip type checking .d.ts files that are included with TypeScript. */
     "skipLibCheck": true                                 /* Skip type checking all .d.ts files. */
-  }
+  },
+
+  /* The production build (npm run build) only emits source under the
+   * top-level *.ts files, the serialization/ and utils/ folders. Tests
+   * + vitest config + dist are excluded so they're not type-checked
+   * against the strict prod settings or copied into dist/. Vitest does
+   * its own transformation of the test files. */
+  "exclude": [
+    "__tests__",
+    "vitest.config.ts",
+    "dist",
+    "node_modules"
+  ]
 }

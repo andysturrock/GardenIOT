@@ -1,4 +1,8 @@
 import { describe, test, expect, beforeEach, afterEach, vi } from 'vitest';
+// Vitest auto-hoists vi.mock() calls above all imports in this file,
+// so these static imports see the mocked aws-crt at runtime.
+import * as awsCrt from 'aws-crt';
+import AWSConnection from '../aws-connection';
 
 // Mock the entire aws-crt module so we don't need real certs or a live
 // broker. We export the same shape the source uses (iot + mqtt),
@@ -62,10 +66,6 @@ vi.mock('aws-crt', () => {
     __willCalls: willCalls,
   };
 });
-
-// Import AFTER vi.mock so the mocked aws-crt is in effect
-const awsCrt = await import('aws-crt');
-const AWSConnection = (await import('../aws-connection')).default;
 
 const mockConn = (awsCrt as any).__mockConnection;
 const mockBuilder = (awsCrt as any).__mockBuilder;

@@ -8,5 +8,11 @@
     "esModuleInterop": true,
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true
-  }
+  },
+  "exclude": [
+    "__tests__",
+    "vitest.config.ts",
+    "dist",
+    "node_modules"
+  ]
 }
