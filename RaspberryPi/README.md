@@ -120,6 +120,18 @@ sudo -u pm2 pm2 logs GardenIOT --lines 50
 
 ### Manual deploy (skipping the timer)
 
+Either of these works:
+
 ```bash
-~pm2/git_repos/GardenIOT/RaspberryPi/deploy.sh
+# As your operator account — runs the same idempotent setup as the
+# initial bootstrap, but the setup bits are no-ops if nothing has
+# changed since last time. Use this when you've also tweaked
+# ecosystem.config.js / the systemd units and want to be sure the
+# installed copies are refreshed.
+~pm2/git_repos/GardenIOT/RaspberryPi/bootstrap.sh
+
+# As the pm2 user — just the deploy (git pull / build / rsync /
+# pm2 reload), no systemd / logrotate / startup-unit reverification.
+# Faster; mirrors what the auto-deploy timer does.
+sudo -u pm2 ~pm2/git_repos/GardenIOT/RaspberryPi/deploy.sh
 ```
