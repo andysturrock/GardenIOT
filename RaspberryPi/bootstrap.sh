@@ -9,8 +9,13 @@
 #   - You're running this AS YOUR NORMAL SUDO-CAPABLE USER, not as the
 #     pm2 user. The script needs root for /var/log, /etc/systemd/system,
 #     systemctl, and to register pm2's own systemd startup unit — the
-#     pm2 user typically can't sudo. The script uses sudo -u pm2 for the
-#     bits that need to run as pm2 (npm ci, npm run build, pm2 commands).
+#     pm2 user typically can't sudo. The script uses `sudo -Hu pm2` for
+#     the bits that need to run as pm2 (npm ci, npm run build, pm2
+#     commands). The capital -H is important: it sets HOME to pm2's
+#     /etc/passwd entry, so `pm2 list` etc. reach the same daemon that
+#     systemd `User=pm2` units reach. Without -H, sudo inherits the
+#     invoking user's HOME and pm2 spawns a second daemon under
+#     /home/<you>/.pm2.
 #
 # Idempotent: safe to re-run. Detects whether GardenIOT is already in
 # pm2 / pm2 startup unit is installed / systemd timer exists and skips
@@ -105,7 +110,7 @@ log ".env sanity check OK (CLIENT_ID=$CLIENT_ID, ENDPOINT=$ENDPOINT)"
 # ---- 2. Build ---------------------------------------------------------------
 
 log "Building (npm ci + tsc + copy node_modules into dist/)..."
-sudo -u "$PM2_USER" bash -c "cd '$PI_DIR' && npm ci --no-audit --no-fund && npm run build"
+sudo -Hu "$PM2_USER" bash -c "cd '$PI_DIR' && npm ci --no-audit --no-fund && npm run build"
 
 # ---- 3. Deploy + log dirs ---------------------------------------------------
 
@@ -116,11 +121,11 @@ sudo chown "$PM2_USER:$PM2_USER" "$DEPLOY_DIR" "$LOG_DIR"
 # ---- 4. Sync dist/ + ecosystem.config.js into the deploy dir ----------------
 
 log "rsync dist/ -> $DEPLOY_DIR (with --delete so stale files are pruned)"
-sudo -u "$PM2_USER" rsync -a --delete "$PI_DIR/dist/" "$DEPLOY_DIR/"
-sudo -u "$PM2_USER" cp "$PI_DIR/ecosystem.config.js" "$DEPLOY_DIR/"
+sudo -Hu "$PM2_USER" rsync -a --delete "$PI_DIR/dist/" "$DEPLOY_DIR/"
+sudo -Hu "$PM2_USER" cp "$PI_DIR/ecosystem.config.js" "$DEPLOY_DIR/"
 
 # Stamp the build so we can see what's deployed.
-sudo -u "$PM2_USER" bash -c "cd '$PI_DIR' && cat > '$DEPLOY_DIR/version.json' <<EOF
+sudo -Hu "$PM2_USER" bash -c "cd '$PI_DIR' && cat > '$DEPLOY_DIR/version.json' <<EOF
 {
   \"git_sha\": \"\$(git rev-parse HEAD)\",
   \"git_branch\": \"\$(git rev-parse --abbrev-ref HEAD)\",
@@ -135,23 +140,23 @@ EOF"
 # or script path — it just restarts in place. If the deploy dir has
 # moved since the last registration, we have to delete + start fresh.
 
-CURRENT_CWD=$(sudo -u "$PM2_USER" pm2 jlist 2>/dev/null \
+CURRENT_CWD=$(sudo -Hu "$PM2_USER" pm2 jlist 2>/dev/null \
   | python3 -c "import sys,json; apps=json.load(sys.stdin); print(next((a['pm2_env']['pm_cwd'] for a in apps if a['name']=='GardenIOT'), ''))" \
   2>/dev/null || true)
 
 if [[ -z "$CURRENT_CWD" ]]; then
   log "Starting GardenIOT in pm2 (not currently registered)"
-  sudo -u "$PM2_USER" pm2 start "$DEPLOY_DIR/ecosystem.config.js"
+  sudo -Hu "$PM2_USER" pm2 start "$DEPLOY_DIR/ecosystem.config.js"
 elif [[ "$CURRENT_CWD" != "$DEPLOY_DIR" ]]; then
   log "GardenIOT registered at stale cwd ($CURRENT_CWD); deleting + starting fresh at $DEPLOY_DIR"
-  sudo -u "$PM2_USER" pm2 delete GardenIOT
-  sudo -u "$PM2_USER" pm2 start "$DEPLOY_DIR/ecosystem.config.js"
+  sudo -Hu "$PM2_USER" pm2 delete GardenIOT
+  sudo -Hu "$PM2_USER" pm2 start "$DEPLOY_DIR/ecosystem.config.js"
 else
   log "GardenIOT already running from $DEPLOY_DIR -> reloading"
-  sudo -u "$PM2_USER" pm2 reload "$DEPLOY_DIR/ecosystem.config.js" --update-env
+  sudo -Hu "$PM2_USER" pm2 reload "$DEPLOY_DIR/ecosystem.config.js" --update-env
 fi
 
-sudo -u "$PM2_USER" pm2 save
+sudo -Hu "$PM2_USER" pm2 save
 
 # ---- 6. pm2 startup systemd unit (idempotent) -------------------------------
 
@@ -162,7 +167,7 @@ else
   log "Installing pm2 startup unit for $PM2_USER"
   # `pm2 startup` prints a sudo command; capture and run it ourselves
   # so the operator doesn't have to copy-paste.
-  STARTUP_CMD=$(sudo -u "$PM2_USER" pm2 startup systemd -u "$PM2_USER" --hp "$PM2_HOME" 2>&1 | grep -E '^sudo ' || true)
+  STARTUP_CMD=$(sudo -Hu "$PM2_USER" pm2 startup systemd -u "$PM2_USER" --hp "$PM2_HOME" 2>&1 | grep -E '^sudo ' || true)
   if [[ -n "$STARTUP_CMD" ]]; then
     eval "$STARTUP_CMD"
   else
@@ -174,9 +179,9 @@ fi
 # ---- 7. pm2-logrotate (idempotent — pm2 install reinstalls cleanly) ---------
 
 log "Installing/refreshing pm2-logrotate"
-sudo -u "$PM2_USER" pm2 install pm2-logrotate >/dev/null
-sudo -u "$PM2_USER" pm2 set pm2-logrotate:max_size 10M
-sudo -u "$PM2_USER" pm2 set pm2-logrotate:retain 7
+sudo -Hu "$PM2_USER" pm2 install pm2-logrotate >/dev/null
+sudo -Hu "$PM2_USER" pm2 set pm2-logrotate:max_size 10M
+sudo -Hu "$PM2_USER" pm2 set pm2-logrotate:retain 7
 
 # ---- 8. systemd auto-deploy timer (idempotent) ------------------------------
 
