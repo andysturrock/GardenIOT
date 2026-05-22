@@ -1,0 +1,16 @@
+[Unit]
+Description=Run GardenIOT auto-deploy on a timer
+
+[Timer]
+# Run once a couple of minutes after boot so the Pi catches up if it
+# was off when a release landed.
+OnBootSec=2min
+# Then check every 5 minutes for new commits on origin/main.
+OnUnitActiveSec=5min
+Unit=gardeniot-deploy.service
+# Randomise within a 30s window so if multiple Pis are ever deployed
+# they don't all hit GitHub at the exact same second.
+RandomizedDelaySec=30s
+
+[Install]
+WantedBy=timers.target
