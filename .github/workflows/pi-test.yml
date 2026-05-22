@@ -1,0 +1,48 @@
+name: pi-test
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'RaspberryPi/**'
+      - '.github/workflows/pi-test.yml'
+  pull_request:
+    paths:
+      - 'RaspberryPi/**'
+      - '.github/workflows/pi-test.yml'
+  workflow_dispatch:
+
+defaults:
+  run:
+    working-directory: RaspberryPi
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: RaspberryPi/package-lock.json
+
+      # --ignore-scripts skips rpi-gpio's native epoll build, which only
+      # compiles on a Raspberry Pi.
+      - run: npm ci --no-audit --no-fund --ignore-scripts
+
+      - name: Typecheck
+        run: npx tsc --noEmit
+
+      - name: Test with coverage (>=95% threshold enforced by vitest)
+        run: npm run test:coverage
+
+      - name: Upload coverage report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pi-coverage
+          path: RaspberryPi/coverage
+          retention-days: 14

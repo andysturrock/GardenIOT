@@ -1,67 +1,90 @@
-import WateringPlan from '../watering-plan';
+import { describe, test, expect, beforeEach, vi } from 'vitest';
+import fs from 'fs/promises';
 import schedule from 'node-schedule';
-import Relay from '../relay';
+import WateringPlan from '../watering-plan';
 import WateringJob from '../watering-job';
+import Relay from '../relay';
 
-function createRule() {
+function buildJob(): WateringJob {
   const rule = new schedule.RecurrenceRule();
-
-  // Set all the fields
-  rule.date = 14;
-  rule.month = 6;
-  rule.year = 2022;
-  rule.dayOfWeek = 2; // Tuesday
-  rule.hour = 2;
-  rule.minute = 3;
-  rule.second = 5;
-  rule.tz = "Europe/London";
-
-  return rule;
+  rule.hour = 8;
+  rule.tz = 'Europe/London';
+  return new WateringJob(rule, 60, [new Relay(Relay.RELAY1)]);
 }
 
-function createRelays() {
-  return [new Relay(Relay.RELAY1), new Relay(Relay.RELAY2)];
-}
+describe('WateringPlan', () => {
+  beforeEach(() => {
+    // node-schedule.scheduleJob would otherwise leave timers behind.
+    const job = { cancel: () => true } as unknown as schedule.Job;
+    vi.spyOn(schedule, 'scheduleJob').mockReturnValue(job);
+  });
 
-function createWateringPlan() {
-  const rule = createRule();
-  const relays = createRelays();
-  const wateringJob = new WateringJob(rule, 10, relays);
-  const wateringPlan = new WateringPlan("Test WateringPlan");
-  wateringPlan.add(wateringJob);
-  return wateringPlan;
-}
+  test('constructor stores the name', () => {
+    const p = new WateringPlan('Morning');
+    expect(p.name).toBe('Morning');
+  });
 
-test('Serialises and deserialises correctly', () => {
-  const expected = createWateringPlan();
+  test('add() accumulates jobs reachable via JSON', () => {
+    const p = new WateringPlan('Plan');
+    p.add(buildJob());
+    p.add(buildJob());
 
-  const json = WateringPlan.toJSON(expected);
-  const actual = WateringPlan.fromJSON(json);
+    const json = WateringPlan.toJSON(p);
+    expect(json._jobs).toHaveLength(2);
+  });
 
-  expect(actual).toEqual(expected);
+  test('clearJobs() empties the job list', () => {
+    const p = new WateringPlan('Plan');
+    p.add(buildJob());
+    p.clearJobs();
 
-  const expectedJSON = JSON.stringify(expected);
-  const actualJSON = JSON.stringify(actual);
+    const json = WateringPlan.toJSON(p);
+    expect(json._jobs).toHaveLength(0);
+  });
 
-  expect(actualJSON).toEqual(expectedJSON);
-});
+  test('JSON round-trip preserves name and jobs', () => {
+    const original = new WateringPlan('Round');
+    original.add(buildJob());
+    original.add(buildJob());
 
-// TODO(audit E1/E2): persistence path is hardcoded to /wateringplans
-// and the save/load flow is half-built (load() is never called from
-// runtime, save() runs every startup with hardcoded contents). Skip
-// until the persistence story is rewritten.
-test.skip('Saves and loads correctly', async () => {
-  const expected = createWateringPlan();
-  await expected.save();
+    const restored = WateringPlan.fromJSON(WateringPlan.toJSON(original));
+    expect(restored.name).toBe('Round');
+    expect(WateringPlan.toJSON(restored)._jobs).toHaveLength(2);
+  });
 
-  const actual = createWateringPlan();
-  actual.clearJobs();
-  await actual.load();
+  describe('save / load (file-store path is hardcoded — fs is mocked)', () => {
+    test('save() serialises the plan and writes JSON to disk', async () => {
+      const writeFile = vi.spyOn(fs, 'writeFile').mockResolvedValue();
+      const p = new WateringPlan('SaveMe');
+      p.add(buildJob());
 
-  expect(actual).toEqual(expected);
+      await p.save();
 
-  const expectedJSON = JSON.stringify(expected);
-  const actualJSON = JSON.stringify(actual);
+      expect(writeFile).toHaveBeenCalledOnce();
+      const [path, contents, encoding] = writeFile.mock.calls[0];
+      expect(String(path)).toContain('SaveMe');
+      expect(encoding).toBe('utf8');
+      const decoded = JSON.parse(String(contents));
+      expect(decoded._name).toBe('SaveMe');
+      expect(decoded._jobs).toHaveLength(1);
+    });
 
-  expect(actualJSON).toEqual(expectedJSON);
+    test('load() reads the file and rebuilds the plan in-place', async () => {
+      const source = new WateringPlan('LoadMe');
+      source.add(buildJob());
+      const serialised = JSON.stringify(WateringPlan.toJSON(source));
+      vi.spyOn(fs, 'readFile').mockResolvedValue(serialised);
+
+      const target = new WateringPlan('LoadMe');
+      await target.load();
+
+      expect(WateringPlan.toJSON(target)._jobs).toHaveLength(1);
+    });
+
+    test('load() propagates errors when the file does not exist', async () => {
+      vi.spyOn(fs, 'readFile').mockRejectedValue(new Error('ENOENT'));
+      const p = new WateringPlan('Missing');
+      await expect(p.load()).rejects.toThrow('ENOENT');
+    });
+  });
 });

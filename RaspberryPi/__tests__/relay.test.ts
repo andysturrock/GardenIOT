@@ -1,16 +1,92 @@
+import { describe, test, expect, beforeEach } from 'vitest';
 import Relay from '../relay';
+import { MockGPIO } from './mock-gpio';
 
-test('Serialises and deserialises correctly', () => {
-  const expected = new Relay(Relay.RELAY1);
+describe('Relay', () => {
+  beforeEach(() => {
+    MockGPIO.reset();
+  });
 
-  const json = Relay.toJSON(expected);
+  describe('constructor', () => {
+    test('RELAY1 maps to pin 35 (BOARD numbering) with name RELAY1', () => {
+      const r = new Relay(Relay.RELAY1);
+      expect(r.id).toBe(35);
+      expect(r.name).toBe('RELAY1');
+    });
 
-  const actual = Relay.fromJSON(json);
+    test('RELAY2 maps to pin 33', () => {
+      const r = new Relay(Relay.RELAY2);
+      expect(r.id).toBe(33);
+      expect(r.name).toBe('RELAY2');
+    });
 
-  expect(actual).toEqual(expected);
+    test('RELAY3 maps to pin 31', () => {
+      const r = new Relay(Relay.RELAY3);
+      expect(r.id).toBe(31);
+      expect(r.name).toBe('RELAY3');
+    });
 
-  const expectedJSON = JSON.stringify(expected);
-  const actualJSON = JSON.stringify(actual);
+    test('RELAY4 maps to pin 29', () => {
+      const r = new Relay(Relay.RELAY4);
+      expect(r.id).toBe(29);
+      expect(r.name).toBe('RELAY4');
+    });
 
-  expect(actualJSON).toEqual(expectedJSON);
+    test('throws RangeError on an unknown RelayId', () => {
+      expect(() => new Relay(99 as never)).toThrow(RangeError);
+    });
+  });
+
+  describe('init()', () => {
+    test('configures the pin as OUTPUT then writes LOW (safe state)', async () => {
+      const r = new Relay(Relay.RELAY1);
+      await r.init();
+
+      expect(MockGPIO.setups).toContainEqual({ pin: 35, dir: MockGPIO.DIR_OUT });
+      expect(MockGPIO.lastValue(35)).toBe(false);
+    });
+  });
+
+  describe('open() / close()', () => {
+    test('open writes GPIO HIGH', async () => {
+      const r = new Relay(Relay.RELAY1);
+      await r.open();
+      expect(MockGPIO.lastValue(35)).toBe(true);
+    });
+
+    test('close writes GPIO LOW', async () => {
+      const r = new Relay(Relay.RELAY1);
+      await r.open();
+      await r.close();
+      expect(MockGPIO.lastValue(35)).toBe(false);
+    });
+  });
+
+  describe('dispose()', () => {
+    test('writes GPIO LOW (closes the relay)', async () => {
+      const r = new Relay(Relay.RELAY1);
+      await r.open();
+      await r.dispose();
+      expect(MockGPIO.lastValue(35)).toBe(false);
+    });
+  });
+
+  describe('JSON round-trip', () => {
+    test('Serialises and deserialises correctly', () => {
+      const expected = new Relay(Relay.RELAY1);
+      const actual = Relay.fromJSON(Relay.toJSON(expected));
+
+      expect(actual).toEqual(expected);
+      expect(JSON.stringify(actual)).toEqual(JSON.stringify(expected));
+    });
+
+    test('round-trips every relay id', () => {
+      for (const id of [Relay.RELAY1, Relay.RELAY2, Relay.RELAY3, Relay.RELAY4]) {
+        const r = new Relay(id);
+        const roundtripped = Relay.fromJSON(Relay.toJSON(r));
+        expect(roundtripped.id).toBe(id);
+        expect(roundtripped.name).toBe(r.name);
+      }
+    });
+  });
 });

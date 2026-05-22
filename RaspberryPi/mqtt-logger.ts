@@ -49,12 +49,9 @@ class MQTTLogger {
   }
 
   private async sendMessage(logObject: ILogObject) {
-    try {
-      this.sendMessageAsync(logObject);
-    } catch (error) {
-      this._localOnlyLogger.error(error);
-      throw error;
-    }
+    // Single failure path: sendMessageAsync handles its own errors and
+    // never throws, so the previous wrapping try/catch was dead code.
+    await this.sendMessageAsync(logObject);
   }
 
   private async sendMessageAsync(logObject: ILogObject) {
@@ -68,11 +65,7 @@ class MQTTLogger {
       const json = JSON.stringify(msg);
       // Assert connection is defined here as should be impossible to call this
       // function without calling init() first.
-      const res = await this._awsConnection!.publish(this.topic, json, mqtt.QoS.AtMostOnce);
-
-      if(!res) {
-        this._localOnlyLogger.warn(`Sending log to AWS may have failed: ${res}`);
-      }
+      await this._awsConnection!.publish(this.topic, json, mqtt.QoS.AtMostOnce);
     }
     catch (error) {
       this._localOnlyLogger.error(`Sending log to AWS has probably failed.`);
@@ -88,3 +81,6 @@ class MQTTLogger {
 const mqttLogger = new MQTTLogger();
 
 export default mqttLogger;
+// Class export so tests can instantiate fresh instances without
+// inheriting the singleton's accumulated transports.
+export { MQTTLogger };
