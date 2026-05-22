@@ -13,6 +13,7 @@ export class IOTStack extends Stack {
 
     const clientId = getEnv('CLIENT_ID', false)!;
     const loggingTopic = `${clientId}/logging`;
+    const statusTopic = `${clientId}/status`;
     const deviceCertificateArn = getEnv('DEVICE_CERT_ARN', false)!;
     const mobileAppName = getEnv('MOBILE_APP_NAME', false)!;
     const mobileAppCertificateArn = getEnv('MOBILE_APP_CERT_ARN', false)!;
@@ -59,7 +60,8 @@ export class IOTStack extends Stack {
             "iot:RetainPublish"
           ],
           "Resource": [
-            `arn:aws:iot:${this.region}:${this.account}:topic/${clientId}/logging`,
+            `arn:aws:iot:${this.region}:${this.account}:topic/${loggingTopic}`,
+            `arn:aws:iot:${this.region}:${this.account}:topic/${statusTopic}`,
             `arn:aws:iot:${this.region}:${this.account}:topic/${thingShadowUpdateTopic}`,
           ]
         }
@@ -158,7 +160,8 @@ export class IOTStack extends Stack {
             "iot:Receive"
           ],
           "Resource": [
-            `arn:aws:iot:${this.region}:${this.account}:topic/${clientId}/logging`,
+            `arn:aws:iot:${this.region}:${this.account}:topic/${loggingTopic}`,
+            `arn:aws:iot:${this.region}:${this.account}:topic/${statusTopic}`,
             `arn:aws:iot:${this.region}:${this.account}:topic/${thingShadowUpdateAcceptedTopic}`,
             `arn:aws:iot:${this.region}:${this.account}:topic/${thingShadowUpdateRejectedTopic}`,
             `arn:aws:iot:${this.region}:${this.account}:topic/${thingShadowUpdateDeltaTopic}`,
@@ -182,7 +185,8 @@ export class IOTStack extends Stack {
             "iot:Subscribe"
           ],
           "Resource": [
-            `arn:aws:iot:${this.region}:${this.account}:topicfilter/${clientId}/logging`,
+            `arn:aws:iot:${this.region}:${this.account}:topicfilter/${loggingTopic}`,
+            `arn:aws:iot:${this.region}:${this.account}:topicfilter/${statusTopic}`,
             `arn:aws:iot:${this.region}:${this.account}:topicfilter/${thingShadowUpdateAcceptedTopic}`,
             `arn:aws:iot:${this.region}:${this.account}:topicfilter/${thingShadowUpdateRejectedTopic}`,
             `arn:aws:iot:${this.region}:${this.account}:topicfilter/${thingShadowUpdateDeltaTopic}`,
