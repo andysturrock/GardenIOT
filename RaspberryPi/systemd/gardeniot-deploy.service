@@ -8,8 +8,10 @@ Type=oneshot
 # Set User= to whichever account owns the git checkout AND the pm2 daemon.
 User=pm2
 Group=pm2
-# Path to the checkout's deploy.sh. Adjust to match your layout.
-ExecStart=/opt/pm2_programs/git_repos/GardenIOT/RaspberryPi/deploy.sh
+# Resolve $HOME from the User=pm2 entry in /etc/passwd so we don't have
+# to hardcode the pm2 user's home directory. systemd sets $HOME from
+# the User=, then bash -c expands it.
+ExecStart=/bin/bash -c 'exec "$HOME/git_repos/GardenIOT/RaspberryPi/deploy.sh"'
 # Capture output in the journal under the unit name.
 StandardOutput=journal
 StandardError=journal

@@ -51,45 +51,49 @@ MOCK_GPIO=1 npm run start:dev  # ts-node, requires a .env
 
 ## Deploying to the Pi
 
+Layout (paths shown relative to the pm2 user's home dir — `~` below
+refers to whatever `~pm2` is, e.g. `/opt/pm2`):
+
+| What | Where |
+|------|-------|
+| Git checkout (source) | `~/git_repos/GardenIOT` |
+| Deployed artefact (compiled JS + `node_modules` + `ecosystem.config.js`) | `~/GardenIOT` |
+| pm2 logs | `/var/log/gardeniot/` |
+| Auto-deploy systemd units | `/etc/systemd/system/gardeniot-deploy.{service,timer}` |
+
 ### One-off setup
 
+Three manual steps, then [`bootstrap.sh`](bootstrap.sh) handles the rest
+(build, pm2 setup, pm2 startup unit, log rotation, systemd auto-deploy
+timer). The script is idempotent — safe to re-run if something needs
+adjusting.
+
 ```bash
-# 1. Clone the repo somewhere the pm2 user can read+write.
-sudo -u pm2 git clone https://github.com/andysturrock/GardenIOT.git /opt/pm2_programs/git_repos/GardenIOT
+# 1. Clone the repo into the pm2 user's home.
+sudo -u pm2 git clone https://github.com/andysturrock/GardenIOT.git ~pm2/git_repos/GardenIOT
 
-# 2. Put the .env file at RaspberryPi/.env (it's gitignored, must be created manually).
-sudo -u pm2 cp /path/to/your.env /opt/pm2_programs/git_repos/GardenIOT/RaspberryPi/.env
+# 2. Put the .env file at RaspberryPi/.env (it's gitignored, must be
+#    created manually). Make sure the cert/key files referenced inside
+#    exist and the private key is mode 0400 owned by the pm2 user.
+sudo -u pm2 cp /path/to/your.env ~pm2/git_repos/GardenIOT/RaspberryPi/.env
 
-# 3. Build once + start pm2 + register at boot.
-sudo -u pm2 bash -c 'cd /opt/pm2_programs/git_repos/GardenIOT/RaspberryPi && npm ci && npm run build'
-sudo mkdir -p /opt/pm2_programs/GardenIOT /var/log/gardeniot
-sudo chown pm2:pm2 /opt/pm2_programs/GardenIOT /var/log/gardeniot
-sudo -u pm2 rsync -a --delete /opt/pm2_programs/git_repos/GardenIOT/RaspberryPi/dist/ /opt/pm2_programs/GardenIOT/
-sudo -u pm2 cp /opt/pm2_programs/git_repos/GardenIOT/RaspberryPi/ecosystem.config.js /opt/pm2_programs/GardenIOT/
-
-sudo -u pm2 pm2 start /opt/pm2_programs/GardenIOT/ecosystem.config.js
-sudo -u pm2 pm2 save
-sudo -u pm2 pm2 startup   # follow the printed sudo command
-
-# 4. Install log rotation so the SD card doesn't fill up.
-sudo -u pm2 pm2 install pm2-logrotate
-sudo -u pm2 pm2 set pm2-logrotate:max_size 10M
-sudo -u pm2 pm2 set pm2-logrotate:retain 7
-
-# 5. Install the systemd timer that pulls + redeploys every 5 mins.
-sudo cp /opt/pm2_programs/git_repos/GardenIOT/RaspberryPi/systemd/gardeniot-deploy.* /etc/systemd/system/
-sudo systemctl daemon-reload
-sudo systemctl enable --now gardeniot-deploy.timer
+# 3. Run bootstrap. Needs sudo for the systemd + dir setup.
+~pm2/git_repos/GardenIOT/RaspberryPi/bootstrap.sh
 ```
+
+Override the defaults via env vars if your layout differs:
+`REPO_DIR`, `DEPLOY_DIR`, `LOG_DIR`, `PM2_USER`. With no overrides,
+everything is anchored at the pm2 user's home dir (looked up via
+`getent passwd`).
 
 ### Day-to-day
 
 Push to `main`. Within ~5 minutes the timer fires, [`deploy.sh`](deploy.sh)
-fetches the new commit, builds, rsyncs to `/opt/pm2_programs/GardenIOT/`,
-and `pm2 reload`s the process. pm2 sends SIGINT first so the
-[`index.ts`](index.ts) shutdown handler has 10 seconds (`kill_timeout` in
-[`ecosystem.config.js`](ecosystem.config.js)) to force-close every relay
-and publish offline status before pm2 sends SIGKILL.
+fetches the new commit, builds, rsyncs to `~pm2/GardenIOT/`, and
+`pm2 reload`s the process. pm2 sends SIGINT first so the
+[`index.ts`](index.ts) shutdown handler has 10 seconds (`kill_timeout`
+in [`ecosystem.config.js`](ecosystem.config.js)) to force-close every
+relay and publish offline status before pm2 sends SIGKILL.
 
 To see deploys in real time:
 
@@ -100,12 +104,12 @@ journalctl -fu gardeniot-deploy.service
 To check what version is currently deployed:
 
 ```bash
-cat /opt/pm2_programs/GardenIOT/version.json
-pm2 logs GardenIOT --lines 50
+sudo -u pm2 cat ~pm2/GardenIOT/version.json
+sudo -u pm2 pm2 logs GardenIOT --lines 50
 ```
 
 ### Manual deploy (skipping the timer)
 
 ```bash
-/opt/pm2_programs/git_repos/GardenIOT/RaspberryPi/deploy.sh
+~pm2/git_repos/GardenIOT/RaspberryPi/deploy.sh
 ```

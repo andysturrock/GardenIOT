@@ -1,24 +1,24 @@
 // PM2 ecosystem config for GardenIOT.
 //
-// Usage on the Pi (one-off setup):
-//   pm2 start /opt/pm2_programs/GardenIOT/ecosystem.config.js
-//   pm2 save
-//   pm2 startup    # follow the printed sudo command
-//   pm2 install pm2-logrotate
-//   pm2 set pm2-logrotate:max_size 10M
-//   pm2 set pm2-logrotate:retain 7
+// Usage on the Pi (one-off setup): run bootstrap.sh. Day-to-day, the
+// systemd timer + deploy.sh redeploys this on every push to main.
 //
-// On every deploy, deploy.sh runs `pm2 reload ecosystem.config.js --update-env`
-// which gracefully restarts the process (SIGINT, wait kill_timeout, SIGKILL),
-// giving our SIGINT handler time to close relays + publish offline status.
+// `cwd: __dirname` so pm2 anchors the working directory to wherever
+// this config file sits, regardless of the pm2 user's home dir. The
+// rsync in deploy.sh / bootstrap.sh always copies this file alongside
+// the built JS, so __dirname == the deploy dir at runtime.
+
+const path = require('path');
+
+const DEPLOY_DIR = __dirname;
+// /var/log/gardeniot is created + chowned to the pm2 user by bootstrap.sh.
+const LOG_DIR = '/var/log/gardeniot';
 
 module.exports = {
   apps: [{
     name: 'GardenIOT',
-    // dist/ is rsync'd into cwd by deploy.sh, so index.js lives directly
-    // alongside the other compiled files and node_modules/.
     script: 'index.js',
-    cwd: '/opt/pm2_programs/GardenIOT',
+    cwd: DEPLOY_DIR,
     node_args: '--enable-source-maps',
     autorestart: true,
     max_restarts: 10,
@@ -27,8 +27,8 @@ module.exports = {
     // Give the SIGINT handler 10s to force-close relays + disconnect MQTT
     // cleanly before pm2 sends SIGKILL.
     kill_timeout: 10000,
-    error_file: '/var/log/gardeniot/error.log',
-    out_file: '/var/log/gardeniot/out.log',
+    error_file: path.join(LOG_DIR, 'error.log'),
+    out_file: path.join(LOG_DIR, 'out.log'),
     merge_logs: true,
     log_date_format: 'YYYY-MM-DD HH:mm:ss Z',
     env: {
