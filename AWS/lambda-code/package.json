@@ -2,10 +2,14 @@
   "name": "garden-iot",
   "version": "1.0.0",
   "description": "IOT and other tech to monitor and control temperature, moisture levels, watering etc",
+  "engines": {
+    "node": ">=18"
+  },
   "scripts": {
-    "test": "jest --watch --coverage -c jest.config.js",
-    "local": "tsc && node dist/local_test",
-    "build": "rm -rf dist && tsc && node build.js"
+    "build": "rm -rf dist && tsc && node build.js",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage"
   },
   "repository": {
     "type": "git",
@@ -24,13 +28,15 @@
   "homepage": "https://github.com/andysturrock/GardenIOT#readme",
   "devDependencies": {
     "@types/node": "^20.11.0",
+    "@vitest/coverage-v8": "^2.0.0",
     "adm-zip": "^0.5.10",
+    "aws-sdk-client-mock": "^4.0.0",
     "glob": "^10.3.0",
-    "typescript": "^5.4.0"
+    "typescript": "^5.4.0",
+    "vitest": "^2.0.0"
   },
   "dependencies": {
     "@aws-sdk/client-dynamodb": "^3.751.0",
-    "@aws-sdk/client-secrets-manager": "^3.750.0",
     "dotenv": "^16.4.0"
   }
 }
