@@ -107,6 +107,61 @@ fi
 
 log ".env sanity check OK (CLIENT_ID=$CLIENT_ID, ENDPOINT=$ENDPOINT)"
 
+# ---- 1.5. pm2 user environment ---------------------------------------------
+#
+# Make sure every entry path to the pm2 user lands at the same PM2_HOME
+# as the pm2-${PM2_USER}.service systemd unit. Otherwise a stray
+# invocation can spawn a second daemon (e.g. `sudo -u pm2 pm2 list`
+# without -H inherits the caller's HOME and lands at /home/<you>/.pm2)
+# and the two daemons fight for the same CLIENT_ID on AWS IoT.
+#
+# Three layers:
+#   .bashrc/.profile/.bash_profile        -> interactive shells (sudo -iu pm2, su - pm2)
+#   /etc/sudoers.d/pm2-env (env_keep)     -> non-interactive sudo -u pm2 ...
+#   `sudo -Hu pm2`                        -> already used by this script; HOME=/opt/pm2
+#                                            resolves $HOME/.pm2 to the same path
+
+PM2_DATA_DIR="${PM2_HOME%/}/.pm2"
+
+log "Ensuring pm2 user's shell init files export PM2_HOME=$PM2_DATA_DIR"
+for f in .bashrc .profile .bash_profile; do
+  path="$PM2_HOME/$f"
+  sudo -u "$PM2_USER" touch "$path"
+  existing=$(sudo grep -E '^[[:space:]]*export[[:space:]]+PM2_HOME=' "$path" 2>/dev/null || true)
+  if [[ -z "$existing" ]]; then
+    sudo tee -a "$path" >/dev/null <<EOF
+
+# GardenIOT bootstrap: keep PM2_HOME aligned with pm2-$PM2_USER.service.
+export PM2_HOME=$PM2_DATA_DIR
+EOF
+  elif ! grep -q "PM2_HOME=$PM2_DATA_DIR" <<<"$existing"; then
+    log "WARN: $path already exports PM2_HOME but not to $PM2_DATA_DIR:"
+    log "        $existing"
+    log "      Fix this manually or pm2 commands will hit the wrong daemon."
+  fi
+done
+
+SUDOERS_DROPIN="/etc/sudoers.d/pm2-env"
+if [[ ! -f "$SUDOERS_DROPIN" ]]; then
+  log "Installing sudoers drop-in at $SUDOERS_DROPIN"
+  # Write to a temp file and visudo-check before moving into place, so a
+  # syntax error never lands a broken file under /etc/sudoers.d/.
+  TMP_SUDOERS=$(sudo mktemp)
+  sudo tee "$TMP_SUDOERS" >/dev/null <<EOF
+# GardenIOT bootstrap: let PM2_HOME propagate when running commands as
+# $PM2_USER, so 'sudo -u $PM2_USER pm2 ...' reaches the same daemon as
+# the pm2-$PM2_USER.service systemd unit.
+Defaults>$PM2_USER env_keep += "PM2_HOME"
+EOF
+  sudo chmod 0440 "$TMP_SUDOERS"
+  if sudo visudo -cf "$TMP_SUDOERS" >/dev/null; then
+    sudo mv "$TMP_SUDOERS" "$SUDOERS_DROPIN"
+  else
+    sudo rm -f "$TMP_SUDOERS"
+    fail "sudoers drop-in failed visudo check; not installed."
+  fi
+fi
+
 # ---- 2. Build ---------------------------------------------------------------
 
 log "Building (npm ci + tsc + copy node_modules into dist/)..."

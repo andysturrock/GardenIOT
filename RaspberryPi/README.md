@@ -135,3 +135,28 @@ Either of these works:
 # Faster; mirrors what the auto-deploy timer does.
 sudo -u pm2 ~pm2/git_repos/GardenIOT/RaspberryPi/deploy.sh
 ```
+
+### Talking to pm2 from the operator account
+
+The pm2 daemon lives at `$PM2_HOME/.pm2` (e.g. `/opt/pm2/.pm2`) and is
+started by the `pm2-pm2.service` systemd unit. Any `pm2` invocation
+that doesn't reach the same `PM2_HOME` will silently spawn a *second*
+daemon, and the two will fight over the AWS IoT client ID — you'll see
+`MQTT_NOT_CONNECTED` errors in the logs.
+
+Three ways to invoke pm2 safely (bootstrap wires up all three):
+
+```bash
+sudo -iu pm2 pm2 list          # login shell — sources ~pm2/.bashrc which sets PM2_HOME
+sudo -Hu pm2 pm2 list          # HOME=/opt/pm2 -> pm2 default $HOME/.pm2 = same path
+sudo -u  pm2 pm2 list          # sudoers env_keep propagates PM2_HOME if you've exported it
+```
+
+What to **avoid**: `sudo -u pm2 pm2 list` from a shell where you haven't
+exported `PM2_HOME` yourself. Without `-H` or `-i`, sudo keeps your
+HOME, pm2 looks at `/home/<you>/.pm2`, finds nothing, and starts a new
+daemon there. To check for stray daemons:
+
+```bash
+ps -ef | grep -E 'PM2.*God Daemon' | grep -v grep   # should be exactly one line
+```
