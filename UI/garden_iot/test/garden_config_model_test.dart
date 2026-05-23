@@ -155,74 +155,130 @@ void main() {
   });
 
   group('update/delta', () {
-    test('applies a delta with higher version', () async {
+    // AWS IoT deltas carry only the changed fields, never a full GardenConfig,
+    // so we deliberately ignore them for apply purposes and rely on
+    // update/documents. The handler only bumps the version counter.
+    test('never applies, even with a full-state payload', () async {
       final model = await connect();
-      final cfg = defaultGardenConfig();
       gateway.deliver('$_base/update/delta', jsonEncode({
-        'state': cfg.toJson(),
+        'state': defaultGardenConfig().toJson(),
         'version': 5,
       }));
       await Future<void>.delayed(Duration.zero);
-      expect(model.config, isNotNull);
-      expect(model.bedName(2), 'Flowers');
+      expect(model.config, isNull);
     });
 
-    test('ignores stale deltas', () async {
+    test('partial delta (the realistic AWS payload) is a no-op', () async {
       final model = await connect();
-      // First documents bumps version to 10
-      gateway.deliver('$_base/update/documents',
-          jsonEncode({'current': {'version': 10}}));
       gateway.deliver('$_base/update/delta', jsonEncode({
-        'state': defaultGardenConfig().toJson(),
-        'version': 3,
+        'state': {'beds': {'1': {'name': 'Tomatoes'}}},
+        'version': 5,
       }));
-      await Future<void>.delayed(Duration.zero);
-      expect(model.config, isNull);
-    });
-
-    test('ignores deltas with no version', () async {
-      final model = await connect();
-      gateway.deliver('$_base/update/delta',
-          jsonEncode({'state': defaultGardenConfig().toJson()}));
-      await Future<void>.delayed(Duration.zero);
-      expect(model.config, isNull);
-    });
-
-    test('ignores deltas with non-map state', () async {
-      final model = await connect();
-      gateway.deliver('$_base/update/delta',
-          jsonEncode({'state': 'oops', 'version': 5}));
       await Future<void>.delayed(Duration.zero);
       expect(model.config, isNull);
     });
   });
 
-  group('update/accepted + update/documents version tracking', () {
-    test('update/accepted bumps version so a later equal-version delta is dropped',
-        () async {
+  group('update/documents', () {
+    test('applies current.state.desired when it differs from previous', () async {
       final model = await connect();
-      gateway.deliver('$_base/update/accepted', jsonEncode({'version': 50}));
-      gateway.deliver('$_base/update/delta', jsonEncode({
-        'state': defaultGardenConfig().toJson(),
-        'version': 30,
+      final prev = defaultGardenConfig();
+      final next = prev.copyWith(beds: {
+        ...prev.beds,
+        '1': const BedConfig(name: 'Tomatoes'),
+      });
+      gateway.deliver('$_base/update/documents', jsonEncode({
+        'previous': {'state': {'desired': prev.toJson(), 'reported': prev.toJson()}, 'version': 1},
+        'current': {'state': {'desired': next.toJson(), 'reported': prev.toJson()}, 'version': 2},
+      }));
+      await Future<void>.delayed(Duration.zero);
+      expect(model.bedName(1), 'Tomatoes');
+      expect(model.bedName(2), 'Flowers');
+    });
+
+    test('does NOT re-apply when only reported changed (loop prevention)', () async {
+      final model = await connect();
+      final cfg = defaultGardenConfig();
+      // Seed the model via get/accepted first so we have a known config
+      // instance to compare against.
+      gateway.deliver('$_base/get/accepted', jsonEncode({
+        'state': {'desired': cfg.toJson(), 'reported': cfg.toJson()},
+        'version': 1,
+      }));
+      await Future<void>.delayed(Duration.zero);
+      final firstConfig = model.config;
+      expect(firstConfig, isNotNull);
+
+      // The Pi's publishReported round-trip looks like this: desired
+      // unchanged, reported newly populated. The handler must skip apply.
+      gateway.deliver('$_base/update/documents', jsonEncode({
+        'previous': {'state': {'desired': cfg.toJson(), 'reported': {}}, 'version': 1},
+        'current': {'state': {'desired': cfg.toJson(), 'reported': cfg.toJson()}, 'version': 2},
+      }));
+      await Future<void>.delayed(Duration.zero);
+      expect(identical(model.config, firstConfig), isTrue);
+    });
+
+    test('first-ever shadow create (no previous desired) applies', () async {
+      final model = await connect();
+      final cfg = defaultGardenConfig();
+      gateway.deliver('$_base/update/documents', jsonEncode({
+        'previous': null,
+        'current': {'state': {'desired': cfg.toJson(), 'reported': cfg.toJson()}, 'version': 1},
+      }));
+      await Future<void>.delayed(Duration.zero);
+      expect(model.config, isNotNull);
+    });
+
+    test('invalid desired in documents is logged without changing state', () async {
+      final model = await connect();
+      gateway.deliver('$_base/update/documents', jsonEncode({
+        'previous': {'state': {}},
+        'current': {'state': {'desired': {'version': 99, 'beds': {}, 'jobs': [], 'tz': 'UTC'}}, 'version': 1},
+      }));
+      await Future<void>.delayed(Duration.zero);
+      expect(model.config, isNull);
+      expect(
+        logModel.messages.any((m) => m.contains('Invalid config from documents')),
+        isTrue,
+      );
+    });
+
+    test('current with no desired is a no-op', () async {
+      final model = await connect();
+      gateway.deliver('$_base/update/documents', jsonEncode({
+        'previous': {'state': {'reported': defaultGardenConfig().toJson()}},
+        'current': {'state': {'reported': defaultGardenConfig().toJson()}, 'version': 5},
       }));
       await Future<void>.delayed(Duration.zero);
       expect(model.config, isNull);
     });
 
-    test('update/documents tolerates a missing current.version', () async {
+    test('tolerates a missing current.version', () async {
       await connect();
       gateway.deliver('$_base/update/documents', jsonEncode({'current': {}}));
       await Future<void>.delayed(Duration.zero);
       // No throw is the assertion.
     });
 
-    test('update/documents ignored when current is not a map', () async {
+    test('ignored when current is not a map', () async {
       await connect();
       gateway.deliver('$_base/update/documents',
           jsonEncode({'current': 'oops'}));
       await Future<void>.delayed(Duration.zero);
       // No throw.
+    });
+  });
+
+  group('update/accepted + update/rejected', () {
+    test('update/accepted is a no-op for apply', () async {
+      final model = await connect();
+      gateway.deliver('$_base/update/accepted', jsonEncode({
+        'state': {'desired': defaultGardenConfig().toJson()},
+        'version': 50,
+      }));
+      await Future<void>.delayed(Duration.zero);
+      expect(model.config, isNull);
     });
 
     test('update/rejected logs without throwing', () async {

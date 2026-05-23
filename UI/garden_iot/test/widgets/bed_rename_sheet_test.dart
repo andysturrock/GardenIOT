@@ -180,5 +180,53 @@ void main() {
       expect(find.text('Rename bed'), findsOneWidget);
       expect(result, 'initial');
     });
+
+    testWidgets('full round-trip: rename publishes, AWS update/documents reply updates the model',
+        (tester) async {
+      await pumpHost(tester,
+          model: model, relayId: 1, initialName: 'Greenhouse');
+      await tester.tap(find.text('Open sheet'));
+      await tester.pumpAndSettle();
+
+      // Sanity: the model has the original name before we rename.
+      expect(model.bedName(1), 'Greenhouse');
+
+      await tester.enterText(find.byType(TextField), 'Tomatoes');
+      await tester.pump();
+      await tester.tap(find.text('Save'));
+      await tester.pumpAndSettle();
+
+      // The publish went out.
+      expect(gateway.publishes, hasLength(1));
+      final pub = gateway.publishes.first;
+      expect(pub.topic, endsWith('/config/update'));
+      final desired = ((pub.payload as Map)['state'] as Map)['desired'] as Map;
+      final newConfig =
+          GardenConfig.fromJson(Map<String, dynamic>.from(desired));
+      expect(newConfig.beds['1']!.name, 'Tomatoes');
+
+      // Simulate the AWS round-trip: an update/documents with the new
+      // desired (this is what the real broker sends after the update is
+      // accepted). The partial /update/delta that AWS also sends would
+      // never round-trip the change on its own — that was the original
+      // bug.
+      final prev = defaultGardenConfig();
+      gateway.deliver(
+        '\$aws/things/${AppConfig.deviceId}/shadow/name/config/update/documents',
+        jsonEncode({
+          'previous': {
+            'state': {'desired': prev.toJson(), 'reported': prev.toJson()},
+            'version': 1,
+          },
+          'current': {
+            'state': {'desired': newConfig.toJson(), 'reported': prev.toJson()},
+            'version': 2,
+          },
+        }),
+      );
+      await tester.pump();
+
+      expect(model.bedName(1), 'Tomatoes');
+    });
   });
 }

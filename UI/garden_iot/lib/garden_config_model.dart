@@ -195,12 +195,12 @@ class GardenConfigModel with ChangeNotifier {
   }
 
   void _onDelta(Map<String, dynamic> json) {
+    // AWS IoT deltas only carry the changed fields, not a full GardenConfig,
+    // so GardenConfig.fromJson would always reject them. We rely on
+    // update/documents (which has the full current.state.desired) to apply
+    // changes. Keep this handler to bump the version counter.
     final version = (json['version'] as num?)?.toInt();
-    if (version == null || version <= _version) return;
-    _version = version;
-    final state = json['state'];
-    if (state is! Map) return;
-    _applyConfigFromJson(state, source: 'delta');
+    if (version != null && version > _version) _version = version;
   }
 
   void _onUpdateAccepted(Map<String, dynamic> json) {
@@ -213,6 +213,17 @@ class GardenConfigModel with ChangeNotifier {
     if (current is! Map) return;
     final version = (current['version'] as num?)?.toInt();
     if (version != null && version > _version) _version = version;
+    final currState = current['state'];
+    if (currState is! Map) return;
+    final currDesired = currState['desired'];
+    if (currDesired == null) return;
+    // Skip when desired didn't change vs previous — the Pi's reported-publish
+    // round-trip would otherwise loop us back through apply forever.
+    final prev = json['previous'];
+    final prevState = (prev is Map) ? prev['state'] : null;
+    final prevDesired = (prevState is Map) ? prevState['desired'] : null;
+    if (jsonEncode(currDesired) == jsonEncode(prevDesired)) return;
+    _applyConfigFromJson(currDesired, source: 'documents');
   }
 
   void _applyConfigFromJson(Object raw, {required String source}) {

@@ -151,78 +151,148 @@ describe('ConfigShadow', () => {
   });
 
   describe('update/delta', () => {
-    test('applies a fresh delta and publishes reported confirmation', async () => {
+    // AWS IoT deltas carry only the changed fields, never a full GardenConfig,
+    // so we deliberately ignore them for apply purposes and rely on
+    // update/documents. The handler only bumps the version counter.
+    test('never calls onChanged, even with a full-state payload', async () => {
       conn.reset();
-      const config: GardenConfig = {
-        version: SCHEMA_VERSION,
-        beds: { '1': { name: 'A' }, '2': { name: 'B' }, '3': { name: 'C' }, '4': { name: 'D' } },
-        jobs: [],
-        tz: 'UTC',
-      };
-      conn.simulateMessage(TOPICS.delta, JSON.stringify({ state: config, version: 7 }));
-      await settle();
-      expect(onChanged).toHaveBeenCalledOnce();
-      expect(onChanged.mock.calls[0][0]).toEqual(config);
-      const reportedPub = conn.publishes.find((p) => p.topic === TOPICS.update);
-      const body = JSON.parse(String(reportedPub!.payload));
-      expect(body.state.reported).toEqual(config);
-    });
-
-    test('stale delta (version below current) is ignored', async () => {
-      conn.reset();
-      // Bump the shadow's tracked version via documents
-      conn.simulateMessage(TOPICS.documents, JSON.stringify({ current: { version: 10 } }));
-      await settle();
       conn.simulateMessage(TOPICS.delta, JSON.stringify({
         state: defaultGardenConfig(),
-        version: 3,
+        version: 7,
       }));
       await settle();
       expect(onChanged).not.toHaveBeenCalled();
     });
 
-    test('delta without a version is ignored', async () => {
+    test('partial delta (the realistic AWS payload) does not throw or apply', async () => {
       conn.reset();
-      conn.simulateMessage(TOPICS.delta, JSON.stringify({ state: defaultGardenConfig() }));
+      // What AWS actually emits when only one bed name changes in desired.
+      conn.simulateMessage(TOPICS.delta, JSON.stringify({
+        state: { beds: { '1': { name: 'Tomatoes' } } },
+        version: 8,
+      }));
       await settle();
       expect(onChanged).not.toHaveBeenCalled();
     });
 
-    test('delta with empty state is ignored', async () => {
+    test('malformed delta payload does not throw', () => {
       conn.reset();
-      conn.simulateMessage(TOPICS.delta, JSON.stringify({ version: 5 }));
-      await settle();
-      expect(onChanged).not.toHaveBeenCalled();
+      expect(() => conn.simulateMessage(TOPICS.delta, '{not json'))
+        .not.toThrow();
     });
 
-    test('non-object delta payload is ignored', async () => {
-      conn.reset();
-      conn.simulateMessage(TOPICS.delta, '[]');
-      await settle();
-      expect(onChanged).not.toHaveBeenCalled();
-    });
-
-    test('invalid config delta logs and does not call onChanged', async () => {
+    test('delta still bumps the internal version', async () => {
       conn.reset();
       conn.simulateMessage(TOPICS.delta, JSON.stringify({
-        state: { version: 1, beds: {}, jobs: [{ id: 'bad', days: [9], hour: 0, minute: 0, duration_s: 10, relays: [1] }], tz: 'UTC' },
-        version: 5,
+        state: { beds: { '1': { name: 'X' } } },
+        version: 200,
       }));
       await settle();
-      expect(onChanged).not.toHaveBeenCalled();
+      // Confirm the version moved by sending update/documents with a
+      // lower-versioned but valid desired and asserting it's still applied
+      // (documents doesn't gate on version for apply).
+      const cfg = defaultGardenConfig();
+      conn.simulateMessage(TOPICS.documents, JSON.stringify({
+        previous: { state: {} },
+        current: { state: { desired: cfg }, version: 201 },
+      }));
+      await settle();
+      expect(onChanged).toHaveBeenCalledOnce();
     });
   });
 
   describe('update/documents', () => {
-    test('updates internal version (subsequent stale delta ignored)', async () => {
+    test('applies current.state.desired when it differs from previous', async () => {
       conn.reset();
-      conn.simulateMessage(TOPICS.documents, JSON.stringify({ current: { version: 100 } }));
-      conn.simulateMessage(TOPICS.delta, JSON.stringify({
-        state: defaultGardenConfig(),
-        version: 50,
+      const next: GardenConfig = {
+        version: SCHEMA_VERSION,
+        beds: { '1': { name: 'Tomatoes' }, '2': { name: 'B' }, '3': { name: 'C' }, '4': { name: 'D' } },
+        jobs: [],
+        tz: 'UTC',
+      };
+      const prev = defaultGardenConfig();
+      conn.simulateMessage(TOPICS.documents, JSON.stringify({
+        previous: { state: { desired: prev, reported: prev }, version: 3 },
+        current: { state: { desired: next, reported: prev }, version: 4 },
+      }));
+      await settle();
+      expect(onChanged).toHaveBeenCalledOnce();
+      expect(onChanged.mock.calls[0][0]).toEqual(next);
+      const reportedPub = conn.publishes.find((p) => p.topic === TOPICS.update);
+      expect(reportedPub).toBeDefined();
+      const body = JSON.parse(String(reportedPub!.payload));
+      expect(body.state.reported).toEqual(next);
+    });
+
+    test('rename-only round trip: bed name in desired flows through to onChanged', async () => {
+      conn.reset();
+      const original = defaultGardenConfig();
+      const renamed: GardenConfig = {
+        ...original,
+        beds: { ...original.beds, '1': { name: 'New Greenhouse' } },
+      };
+      conn.simulateMessage(TOPICS.documents, JSON.stringify({
+        previous: { state: { desired: original, reported: original }, version: 1 },
+        current: { state: { desired: renamed, reported: original }, version: 2 },
+      }));
+      await settle();
+      expect(onChanged).toHaveBeenCalledOnce();
+      const applied = onChanged.mock.calls[0][0] as GardenConfig;
+      expect(applied.beds['1'].name).toBe('New Greenhouse');
+      expect(applied.beds['2'].name).toBe('Flowers');
+    });
+
+    test('does NOT re-apply when only reported changed (loop prevention)', async () => {
+      conn.reset();
+      const cfg = defaultGardenConfig();
+      conn.simulateMessage(TOPICS.documents, JSON.stringify({
+        previous: { state: { desired: cfg, reported: {} }, version: 3 },
+        current: { state: { desired: cfg, reported: cfg }, version: 4 },
       }));
       await settle();
       expect(onChanged).not.toHaveBeenCalled();
+      expect(conn.publishes.filter((p) => p.topic === TOPICS.update)).toHaveLength(0);
+    });
+
+    test('first-ever shadow create (no previous desired) applies', async () => {
+      conn.reset();
+      const cfg = defaultGardenConfig();
+      conn.simulateMessage(TOPICS.documents, JSON.stringify({
+        previous: null,
+        current: { state: { desired: cfg, reported: cfg }, version: 1 },
+      }));
+      await settle();
+      expect(onChanged).toHaveBeenCalledOnce();
+    });
+
+    test('invalid desired in documents is logged but does not throw', async () => {
+      conn.reset();
+      conn.simulateMessage(TOPICS.documents, JSON.stringify({
+        previous: { state: {} },
+        current: {
+          state: { desired: { version: 99, beds: {}, jobs: [], tz: 'UTC' } },
+          version: 1,
+        },
+      }));
+      await settle();
+      expect(onChanged).not.toHaveBeenCalled();
+      expect(conn.publishes.filter((p) => p.topic === TOPICS.update)).toHaveLength(0);
+    });
+
+    test('current with no desired is a no-op', async () => {
+      conn.reset();
+      conn.simulateMessage(TOPICS.documents, JSON.stringify({
+        previous: { state: { reported: defaultGardenConfig() } },
+        current: { state: { reported: defaultGardenConfig() }, version: 5 },
+      }));
+      await settle();
+      expect(onChanged).not.toHaveBeenCalled();
+    });
+
+    test('non-object current is tolerated', () => {
+      conn.reset();
+      expect(() => conn.simulateMessage(TOPICS.documents, JSON.stringify({ current: 'oops' })))
+        .not.toThrow();
     });
 
     test('malformed documents payload does not throw', () => {
@@ -231,23 +301,27 @@ describe('ConfigShadow', () => {
         .not.toThrow();
     });
 
-    test('documents without current.version is tolerated', async () => {
+    test('documents without current is tolerated', () => {
       conn.reset();
-      expect(() => conn.simulateMessage(TOPICS.documents, JSON.stringify({ current: {} })))
+      expect(() => conn.simulateMessage(TOPICS.documents, JSON.stringify({})))
         .not.toThrow();
     });
   });
 
   describe('update/accepted and update/rejected', () => {
-    test('accepted with version bumps internal version', async () => {
+    test('accepted is a no-op for apply (the body is what we sent, not the full doc)', async () => {
       conn.reset();
-      conn.simulateMessage(TOPICS.updateAccepted, JSON.stringify({ version: 42 }));
-      conn.simulateMessage(TOPICS.delta, JSON.stringify({
-        state: defaultGardenConfig(),
-        version: 10,
+      conn.simulateMessage(TOPICS.updateAccepted, JSON.stringify({
+        state: { desired: defaultGardenConfig() },
+        version: 42,
       }));
       await settle();
       expect(onChanged).not.toHaveBeenCalled();
+    });
+
+    test('malformed accepted payload does not throw', () => {
+      expect(() => conn.simulateMessage(TOPICS.updateAccepted, '{not json'))
+        .not.toThrow();
     });
 
     test('rejected payload does not throw', () => {

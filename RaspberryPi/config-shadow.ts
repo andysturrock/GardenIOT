@@ -186,32 +186,33 @@ class ConfigShadow {
   }
 
   private onDelta(topic: string, payload: ArrayBuffer): void {
+    // AWS IoT deltas only carry the changed fields, not a full GardenConfig,
+    // so parseGardenConfig would always reject them. We rely on
+    // update/documents (which has the full current.state.desired) to apply
+    // changes. Keep this handler to bump the version counter.
     const env = this.parseEnvelope(topic, payload);
     if (!env) return;
-    const version = typeof env.version === 'number' ? env.version : null;
-    if (version === null) {
-      logger.warn('ConfigShadow: delta missing version; ignoring');
-      return;
-    }
-    if (version < this.version) {
-      logger.debug(`ConfigShadow: stale delta (current=${this.version}, delta=${version}); ignoring`);
-      return;
-    }
-    this.version = version;
-    const state = env.state;
-    if (!state) {
-      logger.warn('ConfigShadow: delta with no state; ignoring');
-      return;
-    }
-    void this.applyAndReport(state);
+    const v = typeof env.version === 'number' ? env.version : 0;
+    if (v > this.version) this.version = v;
   }
 
   private onDocuments(topic: string, payload: ArrayBuffer): void {
     const env = this.parseEnvelope(topic, payload);
     if (!env) return;
     const current = env.current as Record<string, unknown> | undefined;
-    const v = typeof current?.version === 'number' ? current.version : 0;
+    if (!current) return;
+    const v = typeof current.version === 'number' ? current.version : 0;
     if (v > this.version) this.version = v;
+    const currState = current.state as Record<string, unknown> | undefined;
+    const currDesired = currState?.desired;
+    if (currDesired === undefined) return;
+    // Skip when desired didn't change vs previous — our own publishReported
+    // would otherwise loop us back through apply forever.
+    const prev = env.previous as Record<string, unknown> | undefined;
+    const prevState = prev?.state as Record<string, unknown> | undefined;
+    const prevDesired = prevState?.desired;
+    if (JSON.stringify(currDesired) === JSON.stringify(prevDesired)) return;
+    void this.applyAndReport(currDesired);
   }
 }
 
