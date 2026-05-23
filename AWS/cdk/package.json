@@ -5,10 +5,7 @@
   "bin": {
     "cdk": "bin/cdk.js"
   },
-  "//overrides-rationale": "brace-expansion is forced to >=5.0.6 to clear GHSA-jxxr-4gwj-5jf2 (DoS via large numeric ranges) for the transitively-resolved copies (vitest -> minimatch -> brace-expansion). aws-cdk-lib BUNDLES its own brace-expansion 5.0.5 inside the published tarball; npm overrides can't reach bundled deps, so that copy stays vulnerable until aws-cdk-lib publishes a fix. The DoS isn't reachable from our usage because CDK feeds the bundled brace-expansion only file paths we control during synth, never untrusted input. The Dependabot alert for the aws-cdk-lib bundled copy has been dismissed as tolerable_risk.",
-  "overrides": {
-    "brace-expansion": "^5.0.6"
-  },
+  "//brace-expansion-note": "GHSA-jxxr-4gwj-5jf2 affects brace-expansion 5.0.2-5.0.5. npm auto-resolves the non-bundled copies (vitest -> minimatch -> brace-expansion) to >=5.0.6 already; no override needed. The only stuck copy is the one bundled inside aws-cdk-lib's published tarball, which npm overrides can't reach. That instance isn't exploitable because CDK only feeds it file paths we control during synth, never untrusted input. The Dependabot alert (#146) for the bundled copy is dismissed as tolerable_risk; it will clear when aws-cdk-lib bundles a patched brace-expansion. A blanket override here breaks minimatch@9.0.9 (nested under glob) which expects the brace-expansion 2.x default-export API.",
   "scripts": {
     "build": "rm -rf ./dist/ && tsc",
     "watch": "tsc -w",
