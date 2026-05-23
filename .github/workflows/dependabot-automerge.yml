@@ -1,0 +1,32 @@
+name: dependabot-automerge
+
+# Enables GitHub's native auto-merge on Dependabot PRs. The actual
+# safety gate is the branch-protection ruleset on main, which requires
+# all four test workflows (pi-test, lambda-test, cdk-test,
+# flutter-test) to pass before the merge can happen. This workflow
+# just flips the auto-merge switch; GitHub holds the merge until
+# required checks go green.
+#
+# pull_request_target runs in the base-branch context with secrets
+# available, which is necessary to call the merge API. It's safe here
+# because this workflow doesn't check out or execute PR code -- it
+# only issues a `gh pr merge --auto` API call.
+
+on:
+  pull_request_target:
+    types: [opened, reopened, synchronize, ready_for_review]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  automerge:
+    if: github.actor == 'dependabot[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Enable auto-merge (squash)
+        run: gh pr merge --auto --squash --delete-branch "$PR_URL"
+        env:
+          PR_URL: ${{ github.event.pull_request.html_url }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

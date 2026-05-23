@@ -6,10 +6,11 @@ on:
     paths:
       - 'AWS/lambda-code/**'
       - '.github/workflows/lambda-test.yml'
+  # No path filter on pull_request: every PR must satisfy every test
+  # workflow so they can be wired as required status checks for
+  # auto-merge. A required check that never runs (path filter skipped
+  # it) would block merge forever.
   pull_request:
-    paths:
-      - 'AWS/lambda-code/**'
-      - '.github/workflows/lambda-test.yml'
   workflow_dispatch:
 
 defaults:
@@ -17,7 +18,7 @@ defaults:
     working-directory: AWS/lambda-code
 
 jobs:
-  test:
+  lambda-test:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
