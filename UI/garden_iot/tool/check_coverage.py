@@ -3,10 +3,12 @@
 below MIN_COVERAGE (default 95%).
 
 Some files are excluded:
-  - lib/shadow_relay_model.dart — the MQTT-bound code is exercised by
-    the (skipped) integration test under test/integration/. Unit-testing
-    it would need a wholesale refactor to inject a fake MqttServerClient,
-    which is out of scope.
+  - lib/mqtt_gateway.dart — the MQTT-bound code (cert loading, TLS
+    SecurityContext, MqttServerClient lifecycle) is exercised by the
+    skipped integration test under test/integration/. Unit-testing it
+    would need a wholesale refactor to inject a fake MqttServerClient,
+    which is out of scope. The MqttGatewayLike interface lets the rest
+    of the app be fully unit-tested against a FakeMqttGateway.
 
 Run from the Flutter project root (UI/garden_iot):
     flutter test --coverage
@@ -18,7 +20,7 @@ import re
 import sys
 from pathlib import Path
 
-EXCLUDE = {'lib/shadow_relay_model.dart'}
+EXCLUDE = {'lib/mqtt_gateway.dart'}
 
 
 def main() -> int:

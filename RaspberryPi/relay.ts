@@ -1,7 +1,6 @@
 import getEnv from './utils/getenv';
 import mqttLogger from './mqtt-logger';
 import { RelayId } from './relay-id';
-import SerializedRelay from './serialization/serialized-relay';
 
 import { MockGPIO } from './__tests__/mock-gpio';
 const mockGPIO = getEnv('MOCK_GPIO', true);
@@ -68,29 +67,6 @@ class Relay {
 
   get name() {
     return this._name;
-  }
-
-  /**
-   * Create custom JSON representation of the Relay.
-   * @param {Relay} relay the Relay to serialize
-   * @returns custom JSON representation that can be used by fromJSON
-   */
-  static toJSON(relay: Relay): SerializedRelay {
-    /* eslint no-underscore-dangle: ["error", { "allow": ["_id", "_name"] }] */
-    const json : SerializedRelay = {
-      _id: relay._id,
-    };
-    return json;
-  }
-
-  /**
-   * Create a Relay instance from the SerializedRelay.
-   * @param {SerializedRelay} json SerializedRelay to deserialize
-   * @returns new Relay instance
-   */
-  static fromJSON(json: SerializedRelay): Relay {
-    const relay = new Relay(json._id);
-    return relay;
   }
 }
 

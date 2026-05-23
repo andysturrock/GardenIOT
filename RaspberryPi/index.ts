@@ -6,11 +6,9 @@ import mqttLogger from './mqtt-logger';
 import Relay from './relay';
 import ShadowRelay from './shadow-relay';
 
-import WateringJob from './watering-job';
+import ConfigShadow from './config-shadow';
 import WateringPlan from './watering-plan';
 
-const TIMEZONE = 'Europe/London';
-const WATERING_DURATION_SECONDS = 60 * 5;
 const HEARTBEAT_INTERVAL_MS = 60 * 1000;
 const RELAY_IDS = [Relay.RELAY1, Relay.RELAY2, Relay.RELAY3, Relay.RELAY4];
 
@@ -18,6 +16,8 @@ async function main() {
   let relays: ShadowRelay[] = [];
   let awsConnection: AWSConnection | undefined;
   let heartbeatTimer: ReturnType<typeof setInterval> | undefined;
+  let wateringPlan: WateringPlan | undefined;
+  let configShadow: ConfigShadow | undefined;
   try {
     awsConnection = new AWSConnection();
     await awsConnection.connect();
@@ -27,6 +27,11 @@ async function main() {
     logger.info('GardenIOT starting up...');
 
     relays = RELAY_IDS.map((id) => new ShadowRelay(id, awsConnection!));
+    // Relay ids are 1..4 in the config schema; index here matches that.
+    const relaysById = new Map<number, ShadowRelay>(
+      relays.map((r, i) => [i + 1, r]),
+    );
+    wateringPlan = new WateringPlan(relaysById);
 
     // Best-effort shutdown: attempt to publish reported-closed and
     // disconnect cleanly. Used for SIGINT / SIGTERM / SIGHUP.
@@ -34,8 +39,14 @@ async function main() {
       logger.info(`Caught ${signal}, force-closing relays and disconnecting from AWS.`);
       if (heartbeatTimer) { clearInterval(heartbeatTimer); heartbeatTimer = undefined; }
       try {
+        if (wateringPlan) await wateringPlan.shutdown();
+      } catch (e) { logger.error(`wateringPlan.shutdown threw: ${e}`); }
+      try {
         await schedule.gracefulShutdown();
       } catch (e) { logger.error(`schedule.gracefulShutdown threw: ${e}`); }
+      try {
+        if (configShadow) await configShadow.dispose();
+      } catch (e) { logger.error(`configShadow.dispose threw: ${e}`); }
       await Promise.allSettled(relays.map((r) => r.forceClose()));
       await Promise.allSettled(relays.map((r) => r.dispose()));
       try { await awsConnection!.publishOffline(); } catch (e) {
@@ -62,22 +73,14 @@ async function main() {
 
     await Promise.all(relays.map((r) => r.init()));
 
-    const morningRule = (minute: number) => {
-      const rule = new schedule.RecurrenceRule();
-      rule.tz = TIMEZONE;
-      rule.hour = 8;
-      rule.minute = minute;
-      return rule;
-    };
-    const wateringJob1 = new WateringJob(morningRule(0),  WATERING_DURATION_SECONDS, [relays[0], relays[1]]);
-    const wateringJob2 = new WateringJob(morningRule(10), WATERING_DURATION_SECONDS, [relays[2], relays[3]]);
-
-    // WateringPlan exists to hold the jobs together; the save/load
-    // round-trip is half-built (load is never called from runtime), so
-    // we don't call save here. See audit E1/E2 for the proper rewrite.
-    const wateringPlan = new WateringPlan('Morning Watering');
-    wateringPlan.add(wateringJob1);
-    wateringPlan.add(wateringJob2);
+    // The config shadow drives the watering plan. On first ever boot
+    // it'll seed the shadow with defaultGardenConfig (Greenhouse/Flowers
+    // /Strawberries/Sweetcorn + 08:00/08:10 morning jobs). On subsequent
+    // boots it picks up whatever the app has written.
+    configShadow = new ConfigShadow(awsConnection, (cfg) => {
+      wateringPlan!.apply(cfg);
+    });
+    await configShadow.init();
 
     // Announce we're up and start the heartbeat. AWS-side alarms can
     // page off this topic going stale (audit C3).

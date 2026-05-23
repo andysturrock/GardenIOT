@@ -1,79 +1,34 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:io';
 
 import 'package:flutter/foundation.dart';
-import 'package:flutter/services.dart';
 import 'package:garden_iot/log_model.dart';
+import 'package:garden_iot/mqtt_gateway.dart';
 import 'package:garden_iot/serialization/shadow_message.dart';
 import 'package:garden_iot/utils/env.dart';
-import 'package:mqtt_client/mqtt_client.dart' as mqtt;
-import 'package:mqtt_client/mqtt_server_client.dart';
-
-enum MqttConnectivity { disconnected, connecting, connected }
 
 class ShadowRelayModel with ChangeNotifier {
   static final RegExp _topicPattern =
       RegExp(r'.*/RELAY([0-9]+)/(update|get)/accepted');
 
   final LogModel _logModel;
-  final MqttServerClient _client =
-      MqttServerClient(AppConfig.iotEndPoint, AppConfig.clientId);
-
+  final MqttGatewayLike _gateway;
   final Map<int, RelayState> _reportedStates = <int, RelayState>{};
 
-  MqttConnectivity _connectionState = MqttConnectivity.disconnected;
-  bool _initialised = false;
+  StreamSubscription<MqttDelivery>? _deliverySub;
+  final List<Timer> _pendingGetTimers = <Timer>[];
+  bool _subscribed = false;
+  bool _disposed = false;
 
-  ShadowRelayModel(this._logModel);
+  ShadowRelayModel(this._logModel, this._gateway) {
+    _gateway.addListener(_onGatewayChange);
+    _onGatewayChange();
+  }
 
-  MqttConnectivity get connectionState => _connectionState;
-  bool get isConnected => _connectionState == MqttConnectivity.connected;
+  bool get isConnected => _gateway.isConnected;
+  MqttConnectivity get connectionState => _gateway.connectionState;
 
   RelayState? reportedStateFor(int relayId) => _reportedStates[relayId];
-
-  Future<bool> mqttConnect(AssetBundle bundle) async {
-    if (_connectionState != MqttConnectivity.disconnected) {
-      return isConnected;
-    }
-    _setConnectionState(MqttConnectivity.connecting);
-
-    try {
-      if (!_initialised) {
-        await _configureClient(bundle);
-        _initialised = true;
-      }
-
-      final connMess = mqtt.MqttConnectMessage()
-          .withClientIdentifier(AppConfig.clientId)
-          .startClean();
-      _client.connectionMessage = connMess;
-
-      await _client.connect();
-
-      if (_client.connectionStatus?.state != mqtt.MqttConnectionState.connected) {
-        _logModel.log('MQTT connect failed: ${_client.connectionStatus}');
-        _setConnectionState(MqttConnectivity.disconnected);
-        return false;
-      }
-
-      _logModel.log('MQTT connected');
-      _client.updates?.listen(_onData, onError: _onStreamError, onDone: _onStreamDone);
-      _subscribeAllRelays();
-      _setConnectionState(MqttConnectivity.connected);
-      return true;
-    } catch (e, st) {
-      _logModel.log('MQTT connect threw: $e\n$st');
-      _setConnectionState(MqttConnectivity.disconnected);
-      return false;
-    }
-  }
-
-  Future<void> mqttDisconnect() async {
-    if (_connectionState == MqttConnectivity.disconnected) return;
-    _client.disconnect();
-    _setConnectionState(MqttConnectivity.disconnected);
-  }
 
   void setDesiredState(int relayId, RelayState desired) {
     if (!isConnected) {
@@ -81,34 +36,20 @@ class ShadowRelayModel with ChangeNotifier {
       return;
     }
     final topic = _shadowTopic(relayId, 'update');
-    final payload = jsonEncode(ShadowMessage.desiredUpdate(desired));
-    final builder = mqtt.MqttClientPayloadBuilder()..addString(payload);
-    _client.publishMessage(topic, mqtt.MqttQos.atLeastOnce, builder.payload!);
+    _gateway.publishJson(topic, ShadowMessage.desiredUpdate(desired));
   }
 
-  Future<void> _configureClient(AssetBundle bundle) async {
-    final rootCA = await bundle.load(AppConfig.rootCAPath);
-    final deviceCert = await bundle.load(AppConfig.deviceCertPath);
-    final privateKey = await bundle.load(AppConfig.privateKeyPath);
-
-    final securityContext = SecurityContext(withTrustedRoots: false)
-      ..setTrustedCertificatesBytes(rootCA.buffer.asUint8List())
-      ..useCertificateChainBytes(deviceCert.buffer.asUint8List())
-      ..usePrivateKeyBytes(privateKey.buffer.asUint8List())
-      ..setAlpnProtocols(['x-amzn-mqtt-ca'], false);
-
-    _client
-      ..securityContext = securityContext
-      ..logging(on: AppConfig.mqttLogging)
-      ..keepAlivePeriod = 20
-      ..port = 443
-      ..secure = true
-      ..onConnected = _onConnected
-      ..onDisconnected = _onDisconnected
-      ..onSubscribed = _onSubscribed
-      ..onSubscribeFail = _onSubscribeFail
-      ..onUnsubscribed = _onUnsubscribed
-      ..pongCallback = () => _logModel.log('MQTT pong');
+  void _onGatewayChange() {
+    if (_gateway.isConnected && !_subscribed) {
+      _subscribed = true;
+      _deliverySub ??= _gateway.messages.listen(_onDelivery);
+      _subscribeAllRelays();
+    }
+    if (!_gateway.isConnected && _subscribed) {
+      _subscribed = false;
+      _reportedStates.clear();
+    }
+    notifyListeners();
   }
 
   void _subscribeAllRelays() {
@@ -120,74 +61,57 @@ class ShadowRelayModel with ChangeNotifier {
   void _subscribeRelay(int relayId) {
     final updateTopic = _shadowTopic(relayId, 'update');
     final getTopic = _shadowTopic(relayId, 'get');
-    _client.subscribe('$updateTopic/accepted', mqtt.MqttQos.atLeastOnce);
-    _client.subscribe('$updateTopic/rejected', mqtt.MqttQos.atLeastOnce);
-    _client.subscribe('$getTopic/accepted', mqtt.MqttQos.atLeastOnce);
-    _client.subscribe('$getTopic/rejected', mqtt.MqttQos.atLeastOnce);
+    _gateway.subscribe('$updateTopic/accepted');
+    _gateway.subscribe('$updateTopic/rejected');
+    _gateway.subscribe('$getTopic/accepted');
+    _gateway.subscribe('$getTopic/rejected');
 
-    final builder = mqtt.MqttClientPayloadBuilder()..addString('{}');
-    // Request the initial state. The 500ms delay matches the AWS IoT
-    // subscribe→publish ordering recommendation; without it the broker can
-    // discard the accepted/get response before our subscription is active.
-    Future<void>.delayed(const Duration(milliseconds: 500)).then((_) {
-      if (_connectionState == MqttConnectivity.disconnected) return;
-      _client.publishMessage(getTopic, mqtt.MqttQos.atLeastOnce, builder.payload!);
+    // The 500ms delay matches the AWS IoT subscribe→publish ordering
+    // recommendation; without it the broker can discard the accepted/get
+    // response before our subscription is active. Tracked so dispose can
+    // cancel pending timers and avoid leaked work in tests.
+    late Timer timer;
+    timer = Timer(const Duration(milliseconds: 500), () {
+      _pendingGetTimers.remove(timer);
+      if (_disposed || !_gateway.isConnected) return;
+      _gateway.publishJson(getTopic, const <String, dynamic>{});
     });
+    _pendingGetTimers.add(timer);
   }
 
   String _shadowTopic(int relayId, String action) =>
       '\$aws/things/${AppConfig.deviceId}/shadow/name/RELAY$relayId/$action';
 
-  void _setConnectionState(MqttConnectivity state) {
-    if (_connectionState == state) return;
-    _connectionState = state;
-    notifyListeners();
-  }
-
-  void _onConnected() {
-    _logModel.log('MQTT onConnected');
-    _setConnectionState(MqttConnectivity.connected);
-  }
-
-  void _onDisconnected() {
-    _logModel.log('MQTT onDisconnected');
-    _setConnectionState(MqttConnectivity.disconnected);
-  }
-
-  void _onSubscribed(String topic) => _logModel.log('Subscribed: $topic');
-  void _onSubscribeFail(String topic) => _logModel.log('Subscribe failed: $topic');
-  void _onUnsubscribed(String? topic) => _logModel.log('Unsubscribed: $topic');
-
-  void _onData(List<mqtt.MqttReceivedMessage<mqtt.MqttMessage>> events) {
-    for (final event in events) {
-      final topic = event.topic;
-      final match = _topicPattern.firstMatch(topic);
-      if (match == null) continue;
-      final relayId = int.parse(match.group(1)!);
-      final publish = event.payload as mqtt.MqttPublishMessage;
-      final body = utf8.decode(publish.payload.message);
-      try {
-        final msg = ShadowMessage.fromJson(jsonDecode(body) as Map<String, dynamic>);
-        if (msg.reported != null) {
-          _reportedStates[relayId] = msg.reported!;
-          _logModel.log('Relay $relayId reported ${msg.reported!.toJsonString()}');
-          notifyListeners();
-        }
-        if (msg.desired != null) {
-          _logModel.log('Relay $relayId desired ${msg.desired!.toJsonString()}');
-        }
-      } catch (e) {
-        _logModel.log('Failed to decode shadow message for $topic: $e');
+  void _onDelivery(MqttDelivery msg) {
+    final match = _topicPattern.firstMatch(msg.topic);
+    if (match == null) return;
+    final relayId = int.parse(match.group(1)!);
+    try {
+      final shadow = ShadowMessage.fromJson(
+          jsonDecode(msg.payload) as Map<String, dynamic>);
+      if (shadow.reported != null) {
+        _reportedStates[relayId] = shadow.reported!;
+        _logModel
+            .log('Relay $relayId reported ${shadow.reported!.toJsonString()}');
+        notifyListeners();
       }
+      if (shadow.desired != null) {
+        _logModel.log('Relay $relayId desired ${shadow.desired!.toJsonString()}');
+      }
+    } catch (e) {
+      _logModel.log('Failed to decode shadow message for ${msg.topic}: $e');
     }
   }
 
-  void _onStreamError(Object error) => _logModel.log('MQTT stream error: $error');
-  void _onStreamDone() => _logModel.log('MQTT stream done');
-
   @override
   void dispose() {
-    _client.disconnect();
+    _disposed = true;
+    for (final t in _pendingGetTimers) {
+      t.cancel();
+    }
+    _pendingGetTimers.clear();
+    _gateway.removeListener(_onGatewayChange);
+    _deliverySub?.cancel();
     super.dispose();
   }
 }

@@ -216,38 +216,4 @@ describe('WateringJob', () => {
     });
   });
 
-  describe('JSON round-trip', () => {
-    test('Serialises and deserialises correctly', () => {
-      const rule = new schedule.RecurrenceRule();
-      rule.date = 14;
-      rule.month = 6;
-      rule.year = 2022;
-      rule.dayOfWeek = 2;
-      rule.hour = 2;
-      rule.minute = 3;
-      rule.second = 5;
-      rule.tz = 'Europe/London';
-
-      const relays = [new Relay(Relay.RELAY1), new Relay(Relay.RELAY2)];
-      const expected = new WateringJob(rule, 10, relays);
-
-      const json = WateringJob.toJSON(expected);
-      const actual = WateringJob.fromJSON(json);
-
-      expect(actual).toEqual(expected);
-      expect(JSON.stringify(actual)).toEqual(JSON.stringify(expected));
-    });
-
-    test('fromJSON works without an explicit timezone in the serialised rule', () => {
-      const rule = new schedule.RecurrenceRule();
-      rule.hour = 8;
-      // tz left undefined
-      const relays = [new Relay(Relay.RELAY1)];
-      const original = new WateringJob(rule, 60, relays);
-
-      const round = WateringJob.fromJSON(WateringJob.toJSON(original));
-      expect(round.duration).toBe(60);
-      expect(round.relays).toHaveLength(1);
-    });
-  });
 });

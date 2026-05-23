@@ -30,15 +30,14 @@ void main() {
   });
 
   group('RelayConfig', () {
-    test('exposes name, relayId, and default icon (spa)', () {
-      const r = RelayConfig(name: 'Greenhouse', relayId: 1);
-      expect(r.name, 'Greenhouse');
+    test('exposes relayId and default icon (spa)', () {
+      const r = RelayConfig(relayId: 1);
       expect(r.relayId, 1);
       expect(r.icon, IconCodepoint.spa);
     });
 
     test('icon can be overridden', () {
-      const r = RelayConfig(name: 'Lawn', relayId: 2, icon: IconCodepoint.grass);
+      const r = RelayConfig(relayId: 2, icon: IconCodepoint.grass);
       expect(r.icon, IconCodepoint.grass);
     });
   });

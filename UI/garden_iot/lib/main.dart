@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:garden_iot/dials_grid.dart';
+import 'package:garden_iot/garden_config_model.dart';
 import 'package:garden_iot/log_model.dart';
 import 'package:garden_iot/logger.dart';
+import 'package:garden_iot/mqtt_gateway.dart';
+import 'package:garden_iot/schedule_screen.dart';
 import 'package:garden_iot/shadow_relay_model.dart';
 import 'package:garden_iot/temperature_model.dart';
 import 'package:garden_iot/theme/app_theme.dart';
@@ -11,12 +14,21 @@ import 'package:provider/provider.dart';
 void main() {
   const pollPeriod = Duration(seconds: 5);
   final logModel = LogModel();
+  final gateway = MqttGateway(logModel);
   runApp(
     MultiProvider(
       providers: [
-        ChangeNotifierProvider(create: (_) => TemperatureModel(pollPeriod, logModel)),
-        ChangeNotifierProvider(create: (_) => ShadowRelayModel(logModel)),
         Provider<LogModel>.value(value: logModel),
+        // ListenableProvider because MqttGatewayLike is a Listenable; only
+        // context.read is used here, but `provider` rejects a plain Provider
+        // for Listenable subtypes.
+        ListenableProvider<MqttGatewayLike>.value(value: gateway),
+        ChangeNotifierProvider(
+            create: (_) => TemperatureModel(pollPeriod, logModel)),
+        ChangeNotifierProvider(
+            create: (_) => ShadowRelayModel(logModel, gateway)),
+        ChangeNotifierProvider(
+            create: (_) => GardenConfigModel(logModel, gateway)),
       ],
       child: const MyApp(),
     ),
@@ -59,6 +71,11 @@ class _AppShellState extends State<_AppShell> {
       label: 'Water',
     ),
     _Destination(
+      icon: Icons.schedule_outlined,
+      selectedIcon: Icons.schedule,
+      label: 'Schedule',
+    ),
+    _Destination(
       icon: Icons.article_outlined,
       selectedIcon: Icons.article,
       label: 'Logs',
@@ -74,16 +91,16 @@ class _AppShellState extends State<_AppShell> {
     if (!_mqttBootstrapped) {
       _mqttBootstrapped = true;
       final bundle = DefaultAssetBundle.of(context);
-      final model = context.read<ShadowRelayModel>();
+      final gateway = context.read<MqttGatewayLike>();
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        model.mqttConnect(bundle);
+        gateway.mqttConnect(bundle);
       });
     }
   }
 
   @override
   void dispose() {
-    context.read<ShadowRelayModel>().mqttDisconnect();
+    context.read<MqttGatewayLike>().mqttDisconnect();
     super.dispose();
   }
 
@@ -99,6 +116,7 @@ class _AppShellState extends State<_AppShell> {
           children: const [
             DialsGrid(),
             WaterNowGrid(),
+            ScheduleScreen(),
             LoggerView(),
           ],
         ),

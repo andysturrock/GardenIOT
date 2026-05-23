@@ -71,22 +71,4 @@ describe('Relay', () => {
     });
   });
 
-  describe('JSON round-trip', () => {
-    test('Serialises and deserialises correctly', () => {
-      const expected = new Relay(Relay.RELAY1);
-      const actual = Relay.fromJSON(Relay.toJSON(expected));
-
-      expect(actual).toEqual(expected);
-      expect(JSON.stringify(actual)).toEqual(JSON.stringify(expected));
-    });
-
-    test('round-trips every relay id', () => {
-      for (const id of [Relay.RELAY1, Relay.RELAY2, Relay.RELAY3, Relay.RELAY4]) {
-        const r = new Relay(id);
-        const roundtripped = Relay.fromJSON(Relay.toJSON(r));
-        expect(roundtripped.id).toBe(id);
-        expect(roundtripped.name).toBe(r.name);
-      }
-    });
-  });
 });

@@ -4,6 +4,7 @@ import 'dart:typed_data';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:garden_iot/log_model.dart';
+import 'package:garden_iot/mqtt_gateway.dart';
 import 'package:garden_iot/shadow_relay_model.dart';
 
 class _DiskAssetBundle extends AssetBundle {
@@ -24,12 +25,16 @@ void main() {
   test(
     'connects to dev MQTT broker and receives initial state',
     () async {
-      final model = ShadowRelayModel(LogModel());
-      final connected = await model.mqttConnect(_DiskAssetBundle());
+      final logModel = LogModel();
+      final gateway = MqttGateway(logModel);
+      // ShadowRelayModel listens to the gateway for subscribe + publish.
+      // ignore: unused_local_variable
+      final model = ShadowRelayModel(logModel, gateway);
+      final connected = await gateway.mqttConnect(_DiskAssetBundle());
       expect(connected, isTrue);
       // Allow time for the initial /get responses to flow back.
       await Future<void>.delayed(const Duration(seconds: 25));
-      await model.mqttDisconnect();
+      await gateway.mqttDisconnect();
     },
     skip: 'integration — requires live MQTT endpoint and dev certs on disk',
   );

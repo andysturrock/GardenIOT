@@ -5,16 +5,20 @@ import 'package:garden_iot/utils/env.dart';
 
 class WaterNowButton extends StatelessWidget {
   final RelayConfig relay;
+  final String name;
   final RelayState? reportedState;
   final bool enabled;
   final ValueChanged<bool> onToggle;
+  final VoidCallback? onLongPress;
 
   const WaterNowButton({
     super.key,
     required this.relay,
+    required this.name,
     required this.reportedState,
     required this.enabled,
     required this.onToggle,
+    this.onLongPress,
   });
 
   IconData _iconFor(IconCodepoint icon) {
@@ -38,6 +42,7 @@ class WaterNowButton extends StatelessWidget {
     return Card(
       child: InkWell(
         onTap: enabled ? () => onToggle(!isOpen) : null,
+        onLongPress: onLongPress,
         child: Padding(
           padding: const EdgeInsets.all(AppSpacing.md),
           child: Column(
@@ -60,7 +65,7 @@ class WaterNowButton extends StatelessWidget {
               ),
               const SizedBox(height: AppSpacing.sm),
               Text(
-                relay.name,
+                name,
                 style: textTheme.titleMedium,
                 overflow: TextOverflow.ellipsis,
               ),

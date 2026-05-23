@@ -17,12 +17,10 @@ class SensorConfig {
 }
 
 class RelayConfig {
-  final String name;
   final int relayId;
   final IconCodepoint icon;
 
   const RelayConfig({
-    required this.name,
     required this.relayId,
     this.icon = IconCodepoint.spa,
   });
@@ -57,9 +55,9 @@ abstract class AppConfig {
   ];
 
   static const List<RelayConfig> relays = [
-    RelayConfig(name: 'Greenhouse', relayId: 1, icon: IconCodepoint.spa),
-    RelayConfig(name: 'Flowers', relayId: 2, icon: IconCodepoint.localFlorist),
-    RelayConfig(name: 'Strawberries', relayId: 3, icon: IconCodepoint.agriculture),
-    RelayConfig(name: 'Sweetcorn', relayId: 4, icon: IconCodepoint.grass),
+    RelayConfig(relayId: 1, icon: IconCodepoint.spa),
+    RelayConfig(relayId: 2, icon: IconCodepoint.localFlorist),
+    RelayConfig(relayId: 3, icon: IconCodepoint.agriculture),
+    RelayConfig(relayId: 4, icon: IconCodepoint.grass),
   ];
 }

@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:garden_iot/bed_rename_sheet.dart';
+import 'package:garden_iot/garden_config_model.dart';
+import 'package:garden_iot/mqtt_gateway.dart';
 import 'package:garden_iot/serialization/shadow_message.dart';
 import 'package:garden_iot/shadow_relay_model.dart';
 import 'package:garden_iot/theme/app_theme.dart';
@@ -17,11 +20,11 @@ class WaterNowGrid extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Consumer<ShadowRelayModel>(
-      builder: (context, model, _) {
+    return Consumer2<ShadowRelayModel, GardenConfigModel>(
+      builder: (context, relayModel, configModel, _) {
         return Column(
           children: [
-            _ConnectionBanner(model: model),
+            _ConnectionBanner(connectionState: relayModel.connectionState),
             Expanded(
               child: LayoutBuilder(
                 builder: (context, constraints) {
@@ -34,14 +37,24 @@ class WaterNowGrid extends StatelessWidget {
                     ),
                     itemBuilder: (context, index) {
                       final relay = AppConfig.relays[index];
+                      final name = configModel.bedName(relay.relayId);
                       return WaterNowButton(
                         relay: relay,
-                        reportedState: model.reportedStateFor(relay.relayId),
-                        enabled: model.isConnected,
-                        onToggle: (value) => model.setDesiredState(
+                        name: name,
+                        reportedState:
+                            relayModel.reportedStateFor(relay.relayId),
+                        enabled: relayModel.isConnected,
+                        onToggle: (value) => relayModel.setDesiredState(
                           relay.relayId,
                           value ? RelayState.open : RelayState.closed,
                         ),
+                        onLongPress: configModel.config == null
+                            ? null
+                            : () => BedRenameSheet.show(
+                                  context,
+                                  relayId: relay.relayId,
+                                  initialName: name,
+                                ),
                       );
                     },
                   );
@@ -56,14 +69,14 @@ class WaterNowGrid extends StatelessWidget {
 }
 
 class _ConnectionBanner extends StatelessWidget {
-  final ShadowRelayModel model;
+  final MqttConnectivity connectionState;
 
-  const _ConnectionBanner({required this.model});
+  const _ConnectionBanner({required this.connectionState});
 
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    switch (model.connectionState) {
+    switch (connectionState) {
       case MqttConnectivity.connected:
         return const SizedBox.shrink();
       case MqttConnectivity.connecting:
@@ -113,7 +126,7 @@ class _ConnectionBanner extends StatelessWidget {
               TextButton(
                 onPressed: () {
                   final bundle = DefaultAssetBundle.of(context);
-                  model.mqttConnect(bundle);
+                  context.read<MqttGatewayLike>().mqttConnect(bundle);
                 },
                 style: TextButton.styleFrom(
                   foregroundColor: colorScheme.onErrorContainer,
