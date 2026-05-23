@@ -120,8 +120,8 @@ commit them. Test runs use empty stubs.
 ## Pending work
 
 A Flutter refactor + visual redesign plan exists at
-`.claude/plans/indexed-singing-porcupine.md` (5 phases: pubspec/theme
-foundations → dead-code removal → model layer bug fixes → screen rebuild
-→ lint+tests). It hasn't been started. If the user picks it up, follow
-the plan; if they ask for something that overlaps, mention the plan
-exists.
+[docs/flutter-refactor-plan.md](docs/flutter-refactor-plan.md) (5 phases:
+pubspec/theme foundations → dead-code removal → model layer bug fixes →
+screen rebuild → lint+tests). It hasn't been started. If the user picks
+it up, follow the plan; if they ask for something that overlaps, mention
+the plan exists.
