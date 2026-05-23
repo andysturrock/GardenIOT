@@ -80,7 +80,7 @@ void main() {
       expect(find.widgetWithText(TextField, job.name!), findsOneWidget);
       // Time renders as HH:mm
       expect(find.text('08:00'), findsOneWidget);
-      expect(find.text('5 min'), findsOneWidget);
+      expect(find.text('10 min'), findsOneWidget);
     });
 
     testWidgets('Save publishes upsert with the right job', (tester) async {

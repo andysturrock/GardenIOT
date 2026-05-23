@@ -63,7 +63,8 @@ describe('WateringPlan', () => {
 
   test('apply() forwards duration and resolves relay ids to ShadowRelay instances', () => {
     plan.apply(defaultGardenConfig());
-    expect(calls[0].duration).toBe(300);
+    expect(calls[0].duration).toBe(600);
+    expect(calls[1].duration).toBe(900);
     expect(calls[0].relays.map((r) => (r as unknown as { id: number }).id)).toEqual([1, 2]);
     expect(calls[1].relays.map((r) => (r as unknown as { id: number }).id)).toEqual([3, 4]);
   });

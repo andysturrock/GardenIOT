@@ -162,7 +162,7 @@ export function defaultGardenConfig(): GardenConfig {
         days: [1, 2, 3, 4, 5, 6, 7],
         hour: 8,
         minute: 0,
-        duration_s: 300,
+        duration_s: 600,
         relays: [1, 2],
       },
       {
@@ -171,7 +171,7 @@ export function defaultGardenConfig(): GardenConfig {
         days: [1, 2, 3, 4, 5, 6, 7],
         hour: 8,
         minute: 10,
-        duration_s: 300,
+        duration_s: 900,
         relays: [3, 4],
       },
     ],

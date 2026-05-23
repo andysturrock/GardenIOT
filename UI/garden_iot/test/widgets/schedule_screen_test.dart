@@ -87,8 +87,8 @@ void main() {
       expect(find.text('Morning veg'), findsOneWidget);
       expect(find.text('Morning fruit'), findsOneWidget);
       // Time + duration summary appears once per tile.
-      expect(find.text('08:00 • 5 min'), findsOneWidget);
-      expect(find.text('08:10 • 5 min'), findsOneWidget);
+      expect(find.text('08:00 • 10 min'), findsOneWidget);
+      expect(find.text('08:10 • 15 min'), findsOneWidget);
       // Bed names rendered (relays 1,2 for morning veg).
       expect(find.text('Greenhouse, Flowers'), findsOneWidget);
     });

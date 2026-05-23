@@ -254,7 +254,7 @@ GardenConfig defaultGardenConfig() => const GardenConfig(
           days: [1, 2, 3, 4, 5, 6, 7],
           hour: 8,
           minute: 0,
-          durationS: 300,
+          durationS: 600,
           relays: [1, 2],
         ),
         WateringJobConfig(
@@ -263,7 +263,7 @@ GardenConfig defaultGardenConfig() => const GardenConfig(
           days: [1, 2, 3, 4, 5, 6, 7],
           hour: 8,
           minute: 10,
-          durationS: 300,
+          durationS: 900,
           relays: [3, 4],
         ),
       ],

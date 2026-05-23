@@ -26,12 +26,13 @@ void main() {
       expect(veg.days, [1, 2, 3, 4, 5, 6, 7]);
       expect(veg.hour, 8);
       expect(veg.minute, 0);
-      expect(veg.durationS, 300);
+      expect(veg.durationS, 600);
       expect(veg.relays, [1, 2]);
 
       final fruit = cfg.jobs[1];
       expect(fruit.id, 'default-morning-fruit');
       expect(fruit.minute, 10);
+      expect(fruit.durationS, 900);
       expect(fruit.relays, [3, 4]);
     });
   });
