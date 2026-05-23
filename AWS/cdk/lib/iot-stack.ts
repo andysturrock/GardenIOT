@@ -63,6 +63,7 @@ export class IOTStack extends Stack {
             `arn:aws:iot:${this.region}:${this.account}:topic/${loggingTopic}`,
             `arn:aws:iot:${this.region}:${this.account}:topic/${statusTopic}`,
             `arn:aws:iot:${this.region}:${this.account}:topic/${thingShadowUpdateTopic}`,
+            `arn:aws:iot:${this.region}:${this.account}:topic/${thingShadowGetTopic}`,
           ]
         }
       ]
@@ -84,6 +85,8 @@ export class IOTStack extends Stack {
             `arn:aws:iot:${this.region}:${this.account}:topic/${thingShadowUpdateRejectedTopic}`,
             `arn:aws:iot:${this.region}:${this.account}:topic/${thingShadowUpdateDeltaTopic}`,
             `arn:aws:iot:${this.region}:${this.account}:topic/${thingShadowUpdateDocumentsTopic}`,
+            `arn:aws:iot:${this.region}:${this.account}:topic/${thingShadowGetAcceptedTopic}`,
+            `arn:aws:iot:${this.region}:${this.account}:topic/${thingShadowGetRejectedTopic}`,
           ]
         }
       ]
@@ -105,6 +108,8 @@ export class IOTStack extends Stack {
             `arn:aws:iot:${this.region}:${this.account}:topicfilter/${thingShadowUpdateRejectedTopic}`,
             `arn:aws:iot:${this.region}:${this.account}:topicfilter/${thingShadowUpdateDeltaTopic}`,
             `arn:aws:iot:${this.region}:${this.account}:topicfilter/${thingShadowUpdateDocumentsTopic}`,
+            `arn:aws:iot:${this.region}:${this.account}:topicfilter/${thingShadowGetAcceptedTopic}`,
+            `arn:aws:iot:${this.region}:${this.account}:topicfilter/${thingShadowGetRejectedTopic}`,
           ]
         }
       ]
