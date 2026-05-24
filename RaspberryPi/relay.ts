@@ -21,6 +21,12 @@ class Relay {
 
   private readonly _name : string;
 
+  // Mirrors the GPIO line: true => HIGH/open, false => LOW/closed. Used to
+  // dedupe redundant open/close calls so onActualStateChange only fires on
+  // a true edge — see [shadow-relay.ts] _open() echoing super.open() after
+  // WateringJob has already opened the relay directly.
+  private _isOpen = false;
+
   constructor(id : RelayId) {
     this._id = id;
     this._name = 'undefined';
@@ -44,7 +50,11 @@ class Relay {
 
   async init() {
     await gpio.setup(this._id, gpio.DIR_OUT);
-    await this.close();
+    // Slam GPIO low directly; going via close() would no-op since _isOpen
+    // already starts false, and we don't want init to fire a spurious
+    // onActualStateChange('closed') notification.
+    await gpio.write(this._id, false);
+    this._isOpen = false;
   }
 
   async dispose() {
@@ -52,13 +62,19 @@ class Relay {
   }
 
   async open() {
+    if (this._isOpen) return;
     await gpio.write(this._id, true);
+    this._isOpen = true;
     logger.info(`Relay ${this._name} (pin ${this._id}) open.`);
+    await this.onActualStateChange('open');
   }
 
   async close() {
+    if (!this._isOpen) return;
     await gpio.write(this._id, false);
+    this._isOpen = false;
     logger.info(`Relay ${this._name} (pin ${this._id}) closed.`);
+    await this.onActualStateChange('closed');
   }
 
   get id() {
@@ -67,6 +83,16 @@ class Relay {
 
   get name() {
     return this._name;
+  }
+
+  get isOpen() {
+    return this._isOpen;
+  }
+
+  // Hook for subclasses (ShadowRelay) to emit user-facing logs when the
+  // GPIO line actually transitions. Base impl is a no-op.
+  protected async onActualStateChange(_state: 'open' | 'closed'): Promise<void> {
+    // no-op
   }
 }
 

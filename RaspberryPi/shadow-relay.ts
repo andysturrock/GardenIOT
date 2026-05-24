@@ -7,9 +7,21 @@ import { RelayId } from './relay-id';
 
 const logger = mqttLogger.logger;
 
+// How long to wait, after a desired-state change, for the actual GPIO
+// state to catch up before we declare a fault. Short enough to be a
+// useful signal, long enough to absorb a slow gpio.write or transient
+// hiccup.
+const ACTUAL_MATCH_TIMEOUT_MS = 5_000;
+
+export type BedNameResolver = () => string | undefined;
+
 class ShadowRelay extends Relay {
   private _awsConnection : AWSConnection;
   private thingName: string;
+  // Index in the config schema (1..4), distinct from the GPIO pin id on
+  // Relay. We need it to look up the bed name from GardenConfig.beds.
+  private readonly configRelayId: number;
+  private bedNameResolver?: BedNameResolver;
   private version = 0;
   // qos to use for all operations.
   private qos = mqtt.QoS.AtLeastOnce;
@@ -17,11 +29,25 @@ class ShadowRelay extends Relay {
   private openTimeout = 1000 * 60 * 5;
   // Handle for the safety timeout so we can cancel it on close.
   private safetyTimer: ReturnType<typeof setTimeout> | undefined;
+  // Watchdog that fires if a desired-state change doesn't get reflected
+  // by an actual GPIO state change within ACTUAL_MATCH_TIMEOUT_MS.
+  private actualMatchTimer: ReturnType<typeof setTimeout> | undefined;
 
-  constructor(id : RelayId, awsConnection: AWSConnection) {
+  constructor(id : RelayId, awsConnection: AWSConnection, configRelayId: number) {
     super(id);
     this._awsConnection = awsConnection;
     this.thingName = getEnv('CLIENT_ID', false)!;
+    this.configRelayId = configRelayId;
+  }
+
+  /**
+   * Wire a function that returns the current bed name for this relay's
+   * config id (1..4). Used to dress user-facing log messages. The
+   * resolver is called at log time, not at wire time, so renaming a
+   * bed via the config shadow is reflected immediately.
+   */
+  setBedNameResolver(resolver: BedNameResolver): void {
+    this.bedNameResolver = resolver;
   }
 
   async init() {
@@ -32,6 +58,7 @@ class ShadowRelay extends Relay {
 
   async dispose() {
     this.cancelSafetyTimer();
+    this.cancelActualMatchWatchdog();
     await super.dispose();
     await this.unsubscribe();
   }
@@ -39,13 +66,15 @@ class ShadowRelay extends Relay {
   async open() {
     // Open the relay directly. Do this rather than waiting to respond to
     // the desired message in case our connection to AWS has failed.
+    this.armActualMatchWatchdog('open');
     await super.open();
     // Update the shadow state. This will cause the relay to be opened
-    // again, but that's OK.
+    // again, but that's OK — Relay.open() is idempotent now.
     await this.publishDesiredShadowUpdate('open');
   }
 
   async close() {
+    this.armActualMatchWatchdog('closed');
     await super.close();
     await this.publishDesiredShadowUpdate('closed');
   }
@@ -58,6 +87,7 @@ class ShadowRelay extends Relay {
    */
   async forceClose() {
     this.cancelSafetyTimer();
+    this.cancelActualMatchWatchdog();
     await super.close();
     await this.publishForceCloseShadowUpdate();
   }
@@ -68,6 +98,7 @@ class ShadowRelay extends Relay {
    */
   async emergencyClose() {
     this.cancelSafetyTimer();
+    this.cancelActualMatchWatchdog();
     await super.close();
   }
 
@@ -75,6 +106,7 @@ class ShadowRelay extends Relay {
   private async _open() {
     this.cancelSafetyTimer();
     this.safetyTimer = setTimeout(() => { void this.forceClose(); }, this.openTimeout);
+    this.armActualMatchWatchdog('open');
     await super.open();
     await this.publishReportedShadowUpdate('open');
   }
@@ -82,6 +114,7 @@ class ShadowRelay extends Relay {
   // Called in response to a desired message.
   private async _close() {
     this.cancelSafetyTimer();
+    this.armActualMatchWatchdog('closed');
     await super.close();
     await this.publishReportedShadowUpdate('closed');
   }
@@ -91,6 +124,46 @@ class ShadowRelay extends Relay {
       clearTimeout(this.safetyTimer);
       this.safetyTimer = undefined;
     }
+  }
+
+  private cancelActualMatchWatchdog() {
+    if (this.actualMatchTimer) {
+      clearTimeout(this.actualMatchTimer);
+      this.actualMatchTimer = undefined;
+    }
+  }
+
+  private armActualMatchWatchdog(target: 'open' | 'closed') {
+    this.cancelActualMatchWatchdog();
+    const targetOpen = target === 'open';
+    // Already in the desired position — nothing to watch for. Avoids
+    // arming on every WateringJob → delta echo where the relay was
+    // pre-opened directly.
+    if (this.isOpen === targetOpen) return;
+    this.actualMatchTimer = setTimeout(() => {
+      this.actualMatchTimer = undefined;
+      if (this.isOpen === targetOpen) return;
+      const actual = this.isOpen ? 'open' : 'closed';
+      const bedName = this.resolveBedName();
+      logger.error(
+        `ShadowRelay ${this.name}: desired=${target} but actual=${actual} after ${ACTUAL_MATCH_TIMEOUT_MS}ms`,
+      );
+      void mqttLogger.userError(
+        `${bedName} did not respond to a watering command`,
+        { relay: this.name, expected: target, actual },
+      );
+    }, ACTUAL_MATCH_TIMEOUT_MS);
+  }
+
+  private resolveBedName(): string {
+    return this.bedNameResolver?.() ?? `Relay ${this.configRelayId}`;
+  }
+
+  protected async onActualStateChange(state: 'open' | 'closed'): Promise<void> {
+    this.cancelActualMatchWatchdog();
+    const bedName = this.resolveBedName();
+    const verb = state === 'open' ? 'started' : 'stopped';
+    void mqttLogger.userInfo(`Watering "${bedName}" ${verb}`, { relay: this.name });
   }
 
   private async publishDesiredShadowUpdate(openClosed: string) {

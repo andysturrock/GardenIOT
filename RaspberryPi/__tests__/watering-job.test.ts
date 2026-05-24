@@ -31,7 +31,10 @@ describe('WateringJob', () => {
     // Spy on node-schedule.scheduleJob so we don't actually arm timers.
     scheduleJobSpy = vi.spyOn(schedule, 'scheduleJob') as any;
     scheduleJobSpy.mockReturnValue(sharedMockJob as any);
-    // Silence userX emissions and capture them for assertions.
+    // Silence userX emissions; ShadowRelay (not WateringJob) is the one
+    // that emits them now, so we only assert *here* that WateringJob no
+    // longer does. The detailed per-bed emission is covered in
+    // shadow-relay.test.ts.
     userInfoSpy = vi.spyOn(mqttLogger, 'userInfo').mockResolvedValue();
     userErrorSpy = vi.spyOn(mqttLogger, 'userError').mockResolvedValue();
   });
@@ -112,17 +115,13 @@ describe('WateringJob', () => {
       expect(job.state).toBe(WateringJob.RUNNING);
     });
 
-    test('emits userInfo "Watering starting" with duration and relay ids', async () => {
+    test('does NOT emit a job-level userInfo on start (ShadowRelay does the per-bed emit)', async () => {
       const r1 = new Relay(Relay.RELAY1);
       const r2 = new Relay(Relay.RELAY2);
       // eslint-disable-next-line no-new
       new WateringJob(basicRule(), 300, [r1, r2], 'Morning veg', [1, 2]);
       await fireScheduledJob();
-
-      expect(userInfoSpy).toHaveBeenCalledWith(
-        'Watering "Morning veg" starting',
-        { duration_s: 300, relays: [1, 2] },
-      );
+      expect(userInfoSpy).not.toHaveBeenCalled();
     });
 
     test('schedules stopWatering at start + duration seconds', async () => {
@@ -146,8 +145,8 @@ describe('WateringJob', () => {
 
     test('logs failures and emergency-closes ShadowRelays on partial open failure', async () => {
       const conn = new MockAWSConnection();
-      const r1 = new ShadowRelay(Relay.RELAY1, conn as unknown as never);
-      const r2 = new ShadowRelay(Relay.RELAY2, conn as unknown as never);
+      const r1 = new ShadowRelay(Relay.RELAY1, conn as unknown as never, 1);
+      const r2 = new ShadowRelay(Relay.RELAY2, conn as unknown as never, 2);
       await r1.init();
       await r2.init();
       conn.reset();
@@ -172,6 +171,9 @@ describe('WateringJob', () => {
       const r1 = new Relay(Relay.RELAY1);
       const r2 = new Relay(Relay.RELAY2);
       vi.spyOn(r1, 'open').mockRejectedValueOnce(new Error('gpio fail'));
+      // r2 must be "open" for close() to actually run (idempotent close
+      // skips when already closed). Pre-open it.
+      await r2.open();
       const closeR2 = vi.spyOn(r2, 'close');
 
       const job = new WateringJob(basicRule(), 60, [r1, r2]);
@@ -182,7 +184,7 @@ describe('WateringJob', () => {
       void job;
     });
 
-    test('emits userError on partial open failure with relay ids', async () => {
+    test('does NOT emit a job-level userError on partial open failure (ShadowRelay watchdog does)', async () => {
       const r1 = new Relay(Relay.RELAY1);
       const r2 = new Relay(Relay.RELAY2);
       vi.spyOn(r1, 'open').mockRejectedValueOnce(new Error('gpio fail'));
@@ -191,10 +193,7 @@ describe('WateringJob', () => {
       new WateringJob(basicRule(), 60, [r1, r2], 'Morning veg', [1, 2]);
       await fireScheduledJob();
 
-      expect(userErrorSpy).toHaveBeenCalledWith(
-        'Watering "Morning veg" failed: 1/2 relays did not open',
-        { relays: [1, 2] },
-      );
+      expect(userErrorSpy).not.toHaveBeenCalled();
     });
   });
 
@@ -210,8 +209,8 @@ describe('WateringJob', () => {
 
     test('forceCloses ShadowRelays (publishes both reported and desired)', async () => {
       const conn = new MockAWSConnection();
-      const r1 = new ShadowRelay(Relay.RELAY1, conn as unknown as never);
-      const r2 = new ShadowRelay(Relay.RELAY2, conn as unknown as never);
+      const r1 = new ShadowRelay(Relay.RELAY1, conn as unknown as never, 1);
+      const r2 = new ShadowRelay(Relay.RELAY2, conn as unknown as never, 2);
       await r1.init();
       await r2.init();
       conn.reset();
@@ -249,6 +248,9 @@ describe('WateringJob', () => {
     test('one relay close failure does not prevent the others closing', async () => {
       const r1 = new Relay(Relay.RELAY1);
       const r2 = new Relay(Relay.RELAY2);
+      // Pre-open both so close() actually runs the GPIO path.
+      await r1.open();
+      await r2.open();
       vi.spyOn(r1, 'close').mockRejectedValueOnce(new Error('gpio fail'));
       const close2 = vi.spyOn(r2, 'close');
 
@@ -261,7 +263,7 @@ describe('WateringJob', () => {
       void job;
     });
 
-    test('emits userInfo "Watering completed" on a clean stop', async () => {
+    test('does NOT emit a job-level userInfo on stop (ShadowRelay does the per-bed emit)', async () => {
       const r1 = new Relay(Relay.RELAY1);
       // eslint-disable-next-line no-new
       new WateringJob(basicRule(), 60, [r1], 'Morning veg', [1]);
@@ -270,15 +272,14 @@ describe('WateringJob', () => {
       stopCb();
       await new Promise((r) => setImmediate(r));
 
-      expect(userInfoSpy).toHaveBeenCalledWith(
-        'Watering "Morning veg" completed',
-        { relays: [1] },
-      );
+      expect(userInfoSpy).not.toHaveBeenCalled();
     });
 
-    test('emits userError when one or more closes fail at stop', async () => {
+    test('does NOT emit a job-level userError when closes fail at stop (ShadowRelay watchdog does)', async () => {
       const r1 = new Relay(Relay.RELAY1);
       const r2 = new Relay(Relay.RELAY2);
+      await r1.open();
+      await r2.open();
       vi.spyOn(r1, 'close').mockRejectedValueOnce(new Error('gpio fail'));
 
       // eslint-disable-next-line no-new
@@ -287,11 +288,7 @@ describe('WateringJob', () => {
       stopCb();
       await new Promise((r) => setImmediate(r));
 
-      expect(userErrorSpy).toHaveBeenCalledWith(
-        'Watering "Morning veg" stop failed: 1/2 relays did not close',
-        { relays: [1, 2] },
-      );
+      expect(userErrorSpy).not.toHaveBeenCalled();
     });
   });
-
 });

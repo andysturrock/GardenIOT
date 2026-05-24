@@ -26,8 +26,8 @@ async function main() {
 
     logger.info('GardenIOT starting up...');
 
-    relays = RELAY_IDS.map((id) => new ShadowRelay(id, awsConnection!));
-    // Relay ids are 1..4 in the config schema; index here matches that.
+    // Relay ids are 1..4 in the config schema; the array index matches.
+    relays = RELAY_IDS.map((id, i) => new ShadowRelay(id, awsConnection!, i + 1));
     const relaysById = new Map<number, ShadowRelay>(
       relays.map((r, i) => [i + 1, r]),
     );
@@ -82,6 +82,12 @@ async function main() {
     // boots it picks up whatever the app has written.
     configShadow = new ConfigShadow(awsConnection, (cfg) => {
       wateringPlan!.apply(cfg);
+    });
+    // Bed name resolvers read configShadow at log time, so user-facing
+    // log lines pick up renames the moment a new config is applied.
+    relays.forEach((r, i) => {
+      const configId = i + 1;
+      r.setBedNameResolver(() => configShadow!.config?.beds[String(configId)]?.name);
     });
     await configShadow.init();
 
