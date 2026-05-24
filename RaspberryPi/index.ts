@@ -37,6 +37,9 @@ async function main() {
     // disconnect cleanly. Used for SIGINT / SIGTERM / SIGHUP.
     const gracefulShutdown = async (signal: string) => {
       logger.info(`Caught ${signal}, force-closing relays and disconnecting from AWS.`);
+      try { await mqttLogger.userInfo('GardenIOT offline (graceful)'); } catch (e) {
+        logger.error(`userInfo offline threw: ${e}`);
+      }
       if (heartbeatTimer) { clearInterval(heartbeatTimer); heartbeatTimer = undefined; }
       try {
         if (wateringPlan) await wateringPlan.shutdown();
@@ -91,6 +94,7 @@ async function main() {
     }, HEARTBEAT_INTERVAL_MS);
 
     logger.info('GardenIOT running...');
+    void mqttLogger.userInfo('GardenIOT online');
   } catch (error) {
     if(error instanceof Error) {
       console.error(`Error: ${error.stack}`);

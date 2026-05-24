@@ -17,14 +17,16 @@ interface ScheduledCall {
   rule: schedule.RecurrenceRule;
   duration: number;
   relays: ShadowRelay[];
+  name: string;
+  relayIds: number[];
   job: { cancel: ReturnType<typeof vi.fn> };
 }
 
 function makeFactory(): { factory: WateringJobFactory; calls: ScheduledCall[] } {
   const calls: ScheduledCall[] = [];
-  const factory: WateringJobFactory = (rule, duration, relays) => {
+  const factory: WateringJobFactory = (rule, duration, relays, name, relayIds) => {
     const job = { cancel: vi.fn(() => true) };
-    calls.push({ rule, duration, relays, job });
+    calls.push({ rule, duration, relays, name, relayIds, job });
     return job as unknown as WateringJob;
   };
   return { factory, calls };
@@ -77,6 +79,32 @@ describe('WateringPlan', () => {
     expect(rule.minute).toBe(0);
     // Mon..Sun in ISO → 1..6,0 in node-schedule
     expect(rule.dayOfWeek).toEqual([1, 2, 3, 4, 5, 6, 0]);
+  });
+
+  test('apply() forwards job name and logical relay ids to the factory', () => {
+    plan.apply(defaultGardenConfig());
+    expect(calls[0].name).toBe('Morning veg');
+    expect(calls[0].relayIds).toEqual([1, 2]);
+    expect(calls[1].name).toBe('Morning fruit');
+    expect(calls[1].relayIds).toEqual([3, 4]);
+  });
+
+  test('apply() falls back to the job id when name is absent', () => {
+    const cfg: GardenConfig = {
+      ...defaultGardenConfig(),
+      jobs: [
+        {
+          id: 'unnamed-job-42',
+          days: [1],
+          hour: 6,
+          minute: 0,
+          duration_s: 30,
+          relays: [1],
+        },
+      ],
+    };
+    plan.apply(cfg);
+    expect(calls[calls.length - 1].name).toBe('unnamed-job-42');
   });
 
   test('apply() twice with identical config is a no-op (no churn)', () => {
@@ -166,9 +194,9 @@ describe('WateringPlan', () => {
   });
 
   test('cancel failure during apply() is logged but does not break the reschedule', () => {
-    const throwingFactory: WateringJobFactory = (rule, duration, relays) => {
+    const throwingFactory: WateringJobFactory = (rule, duration, relays, name, relayIds) => {
       const j = { cancel: vi.fn(() => { throw new Error('cancel fail'); }) };
-      calls.push({ rule, duration, relays, job: j });
+      calls.push({ rule, duration, relays, name, relayIds, job: j });
       return j as unknown as WateringJob;
     };
     const p = new WateringPlan(relayMap([1, 2, 3, 4]), throwingFactory);

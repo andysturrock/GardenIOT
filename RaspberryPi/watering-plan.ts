@@ -13,10 +13,12 @@ export type WateringJobFactory = (
   rule: schedule.RecurrenceRule,
   duration: number,
   relays: ShadowRelay[],
+  name: string,
+  relayIds: number[],
 ) => WateringJob;
 
-const defaultFactory: WateringJobFactory = (rule, duration, relays) =>
-  new WateringJob(rule, duration, relays);
+const defaultFactory: WateringJobFactory = (rule, duration, relays, name, relayIds) =>
+  new WateringJob(rule, duration, relays, name, relayIds);
 
 /**
  * Convert an ISO weekday (1=Mon..7=Sun) into a node-schedule
@@ -115,7 +117,7 @@ class WateringPlan {
       }
       relays.push(relay);
     }
-    return this.factory(rule, cfg.duration_s, relays);
+    return this.factory(rule, cfg.duration_s, relays, cfg.name ?? cfg.id, cfg.relays);
   }
 }
 

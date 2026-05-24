@@ -3,6 +3,7 @@ import schedule from 'node-schedule';
 import Relay from '../relay';
 import ShadowRelay from '../shadow-relay';
 import WateringJob from '../watering-job';
+import mqttLogger from '../mqtt-logger';
 import { MockAWSConnection } from './mock-aws-connection';
 import { MockGPIO } from './mock-gpio';
 
@@ -16,6 +17,8 @@ function basicRule(): schedule.RecurrenceRule {
 
 describe('WateringJob', () => {
   let scheduleJobSpy: ReturnType<typeof vi.spyOn>;
+  let userInfoSpy: ReturnType<typeof vi.spyOn>;
+  let userErrorSpy: ReturnType<typeof vi.spyOn>;
 
   // Single shared mock job object so multiple WateringJob constructions
   // get reference-equal `job` fields — needed for the JSON round-trip
@@ -28,10 +31,15 @@ describe('WateringJob', () => {
     // Spy on node-schedule.scheduleJob so we don't actually arm timers.
     scheduleJobSpy = vi.spyOn(schedule, 'scheduleJob') as any;
     scheduleJobSpy.mockReturnValue(sharedMockJob as any);
+    // Silence userX emissions and capture them for assertions.
+    userInfoSpy = vi.spyOn(mqttLogger, 'userInfo').mockResolvedValue();
+    userErrorSpy = vi.spyOn(mqttLogger, 'userError').mockResolvedValue();
   });
 
   afterEach(() => {
     scheduleJobSpy.mockRestore();
+    userInfoSpy.mockRestore();
+    userErrorSpy.mockRestore();
   });
 
   describe('construction', () => {
@@ -58,6 +66,16 @@ describe('WateringJob', () => {
     test('exposes the WAITING and RUNNING state constants', () => {
       expect(WateringJob.WAITING).toBe('WAITING');
       expect(WateringJob.RUNNING).toBe('RUNNING');
+    });
+
+    test('name defaults to "unnamed" when not provided; getter exposes it', () => {
+      const job = new WateringJob(basicRule(), 60, []);
+      expect(job.name).toBe('unnamed');
+    });
+
+    test('name passed to constructor is exposed via getter', () => {
+      const job = new WateringJob(basicRule(), 60, [], 'Morning veg');
+      expect(job.name).toBe('Morning veg');
     });
   });
 
@@ -92,6 +110,19 @@ describe('WateringJob', () => {
       expect(openR1).toHaveBeenCalledOnce();
       expect(openR2).toHaveBeenCalledOnce();
       expect(job.state).toBe(WateringJob.RUNNING);
+    });
+
+    test('emits userInfo "Watering starting" with duration and relay ids', async () => {
+      const r1 = new Relay(Relay.RELAY1);
+      const r2 = new Relay(Relay.RELAY2);
+      // eslint-disable-next-line no-new
+      new WateringJob(basicRule(), 300, [r1, r2], 'Morning veg', [1, 2]);
+      await fireScheduledJob();
+
+      expect(userInfoSpy).toHaveBeenCalledWith(
+        'Watering "Morning veg" starting',
+        { duration_s: 300, relays: [1, 2] },
+      );
     });
 
     test('schedules stopWatering at start + duration seconds', async () => {
@@ -149,6 +180,21 @@ describe('WateringJob', () => {
       // Plain Relay's emergency-close fallback is .close()
       expect(closeR2).toHaveBeenCalledOnce();
       void job;
+    });
+
+    test('emits userError on partial open failure with relay ids', async () => {
+      const r1 = new Relay(Relay.RELAY1);
+      const r2 = new Relay(Relay.RELAY2);
+      vi.spyOn(r1, 'open').mockRejectedValueOnce(new Error('gpio fail'));
+
+      // eslint-disable-next-line no-new
+      new WateringJob(basicRule(), 60, [r1, r2], 'Morning veg', [1, 2]);
+      await fireScheduledJob();
+
+      expect(userErrorSpy).toHaveBeenCalledWith(
+        'Watering "Morning veg" failed: 1/2 relays did not open',
+        { relays: [1, 2] },
+      );
     });
   });
 
@@ -213,6 +259,38 @@ describe('WateringJob', () => {
 
       expect(close2).toHaveBeenCalledOnce();
       void job;
+    });
+
+    test('emits userInfo "Watering completed" on a clean stop', async () => {
+      const r1 = new Relay(Relay.RELAY1);
+      // eslint-disable-next-line no-new
+      new WateringJob(basicRule(), 60, [r1], 'Morning veg', [1]);
+      const stopCb = await fireStart();
+      userInfoSpy.mockClear();
+      stopCb();
+      await new Promise((r) => setImmediate(r));
+
+      expect(userInfoSpy).toHaveBeenCalledWith(
+        'Watering "Morning veg" completed',
+        { relays: [1] },
+      );
+    });
+
+    test('emits userError when one or more closes fail at stop', async () => {
+      const r1 = new Relay(Relay.RELAY1);
+      const r2 = new Relay(Relay.RELAY2);
+      vi.spyOn(r1, 'close').mockRejectedValueOnce(new Error('gpio fail'));
+
+      // eslint-disable-next-line no-new
+      new WateringJob(basicRule(), 60, [r1, r2], 'Morning veg', [1, 2]);
+      const stopCb = await fireStart();
+      stopCb();
+      await new Promise((r) => setImmediate(r));
+
+      expect(userErrorSpy).toHaveBeenCalledWith(
+        'Watering "Morning veg" stop failed: 1/2 relays did not close',
+        { relays: [1, 2] },
+      );
     });
   });
 

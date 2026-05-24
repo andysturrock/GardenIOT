@@ -1,6 +1,7 @@
-import { describe, test, expect, beforeEach, vi } from 'vitest';
+import { describe, test, expect, beforeEach, afterEach, vi } from 'vitest';
 import { mqtt } from 'aws-crt';
 import ConfigShadow from '../config-shadow';
+import mqttLogger from '../mqtt-logger';
 import { defaultGardenConfig, GardenConfig, SCHEMA_VERSION } from '../serialization/garden-config';
 import { MockAWSConnection } from './mock-aws-connection';
 
@@ -26,12 +27,18 @@ describe('ConfigShadow', () => {
   let conn: MockAWSConnection;
   let onChanged: ReturnType<typeof vi.fn>;
   let shadow: ConfigShadow;
+  let userInfoSpy: ReturnType<typeof vi.spyOn>;
 
   beforeEach(async () => {
     conn = new MockAWSConnection();
     onChanged = vi.fn();
+    userInfoSpy = vi.spyOn(mqttLogger, 'userInfo').mockResolvedValue();
     shadow = new ConfigShadow(conn as unknown as never, onChanged);
     await shadow.init();
+  });
+
+  afterEach(() => {
+    userInfoSpy.mockRestore();
   });
 
   describe('init()', () => {
@@ -50,6 +57,35 @@ describe('ConfigShadow', () => {
     test('publishes a get to fetch initial state', () => {
       const gets = conn.publishes.filter((p) => p.topic === TOPICS.get);
       expect(gets).toHaveLength(1);
+    });
+  });
+
+  describe('user-level "Schedule updated" notice', () => {
+    test('fires on a desired change delivered via update/documents', async () => {
+      conn.reset();
+      const next: GardenConfig = {
+        ...defaultGardenConfig(),
+        jobs: defaultGardenConfig().jobs.slice(0, 1), // 1 job
+      };
+      conn.simulateMessage(TOPICS.documents, JSON.stringify({
+        previous: { state: { desired: defaultGardenConfig() }, version: 1 },
+        current: { state: { desired: next }, version: 2 },
+      }));
+      await settle();
+      expect(userInfoSpy).toHaveBeenCalledWith(
+        'Schedule updated',
+        { job_count: 1 },
+      );
+    });
+
+    test('does NOT fire on the initial get/accepted apply (Pi restart)', async () => {
+      conn.reset();
+      conn.simulateMessage(TOPICS.getAccepted, JSON.stringify({
+        state: { reported: defaultGardenConfig() },
+        version: 1,
+      }));
+      await settle();
+      expect(userInfoSpy).not.toHaveBeenCalled();
     });
   });
 

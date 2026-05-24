@@ -126,7 +126,7 @@ class ConfigShadow {
     }
   }
 
-  private async applyAndReport(raw: unknown): Promise<void> {
+  private async applyAndReport(raw: unknown, emitUserNotice = false): Promise<void> {
     let config: GardenConfig;
     try {
       config = parseGardenConfig(raw);
@@ -145,6 +145,11 @@ class ConfigShadow {
       logger.error(`ConfigShadow: onChanged callback threw: ${e}`);
     }
     await this.publishReported(config);
+    if (emitUserNotice) {
+      // Initial-load apply (from get/accepted) intentionally skips this —
+      // operators don't need a "Schedule updated" notice every Pi restart.
+      void mqttLogger.userInfo('Schedule updated', { job_count: config.jobs.length });
+    }
   }
 
   private onGetAccepted(topic: string, payload: ArrayBuffer): void {
@@ -212,7 +217,7 @@ class ConfigShadow {
     const prevState = prev?.state as Record<string, unknown> | undefined;
     const prevDesired = prevState?.desired;
     if (JSON.stringify(currDesired) === JSON.stringify(prevDesired)) return;
-    void this.applyAndReport(currDesired);
+    void this.applyAndReport(currDesired, true);
   }
 }
 
