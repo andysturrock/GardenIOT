@@ -438,7 +438,7 @@ Bump `apiGatewayDeployment.addToLogicalId({ methods: [...] })` to include `GET /
 
 ---
 
-### Stage 7 — App: dual-stream logs UI with infinite scroll ⏳ Next up
+### Stage 7 — App: dual-stream logs UI with infinite scroll ✅ Complete
 
 The Logs tab gets a category toggle and an infinite scroll backed by the new GET endpoint, with live tail from MQTT on top.
 
@@ -515,7 +515,7 @@ Add a small `LogsApi` client class in [`UI/garden_iot/lib/utils/logs_api.dart`](
 
 ---
 
-### Stage 8 — Cleanup, CI sanity, docs
+### Stage 8 — Cleanup, CI sanity, docs ⏳ Next up
 
 - **IoT policy check.** [`iot-stack.ts`](../AWS/cdk/lib/iot-stack.ts) already wildcards shadow topics with `name/*`, so no CDK change is required for the `config` shadow. Re-read it once and confirm; if I'm wrong, add explicit `name/config/*` ARNs to both Device and MobileApp policies.
 - **CDK snapshot test.** Regenerate (`AWS/cdk/__tests__/__snapshots__/`) — stage 6 adds a table + IoT rule + Lambda + API method so the snapshot will change regardless.

@@ -48,6 +48,7 @@ abstract class AppConfig {
 
   static const String temperatureApiHost = 'api.gardeniot.goatsinlace.com';
   static const String temperatureApiPath = '/0_0_1/temperature';
+  static const String logsApiPath = '/0_0_1/logs';
 
   static const List<SensorConfig> sensors = [
     SensorConfig(name: 'Greenhouse', sensorId: 1),

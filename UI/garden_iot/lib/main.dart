@@ -15,10 +15,11 @@ void main() {
   const pollPeriod = Duration(seconds: 5);
   final logModel = LogModel();
   final gateway = MqttGateway(logModel);
+  logModel.bindGateway(gateway);
   runApp(
     MultiProvider(
       providers: [
-        Provider<LogModel>.value(value: logModel),
+        ChangeNotifierProvider<LogModel>.value(value: logModel),
         // ListenableProvider because MqttGatewayLike is a Listenable; only
         // context.read is used here, but `provider` rejects a plain Provider
         // for Listenable subtypes.
