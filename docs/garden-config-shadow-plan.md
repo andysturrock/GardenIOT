@@ -85,7 +85,7 @@ Five stages, each independently mergeable. Each stage leaves both the Pi and the
 
 ---
 
-### Stage 1 — Shared config model + serialization
+### Stage 1 — Shared config model + serialization ✅ Complete
 
 Pure refactor + new types. No behaviour change. Lands the contract both sides will agree on.
 
@@ -147,7 +147,7 @@ No new package — `dart:math` Random.secure is already available.
 
 ---
 
-### Stage 2 — Pi reads/writes the config shadow
+### Stage 2 — Pi reads/writes the config shadow ✅ Complete
 
 The Pi becomes a shadow consumer. Watering plan is rebuilt on every delta. First-ever boot seeds the shadow from the hardcoded default.
 
@@ -206,9 +206,11 @@ The hardcoded morning plan disappears from `index.ts`; the default lives in [`ga
 
 ---
 
-### Stage 3 — App subscribes to the config shadow + bed renaming
+### Stage 3 — App subscribes to the config shadow + bed renaming ✅ Complete
 
-The app starts reading bed names from the shadow. Adds a UI to rename them. Schedule editing comes in stage 4.
+The app starts reading bed names from the shadow.
+
+**Post-merge fix (commit 4237f4b):** AWS IoT `update/delta` only carries the changed fields, never a full `GardenConfig`, so `parseGardenConfig` (Pi) and `GardenConfig.fromJson` (app) rejected every rename with an unsupported-schema-version error and bed renames silently failed to round-trip. Both sides now drive apply from `update/documents` (`current.state.desired`) with a `desired == previous.desired` skip to prevent the Pi's own `publishReported` from looping. Round-trip widget test added in [bed_rename_sheet_test.dart](../UI/garden_iot/test/widgets/bed_rename_sheet_test.dart). Adds a UI to rename them. Schedule editing comes in stage 4.
 
 **New file — [`UI/garden_iot/lib/garden_config_model.dart`](../UI/garden_iot/lib/garden_config_model.dart):**
 
@@ -262,7 +264,7 @@ Long-press is preferred to a dedicated edit screen — keeps the M3 affordances 
 
 ---
 
-### Stage 4 — App schedule editor
+### Stage 4 — App schedule editor ✅ Complete
 
 The "Schedule" tab. CRUD on watering jobs.
 
@@ -308,7 +310,7 @@ Validation: name non-empty, at least one day selected, at least one bed selected
 
 ---
 
-### Stage 5 — Pi: structured log records with user / technical categories
+### Stage 5 — Pi: structured log records with user / technical categories ⏳ Next up
 
 Today the Pi pipes everything through one [`mqttLogger`](../RaspberryPi/mqtt-logger.ts) stream (tslog → MQTT topic `${CLIENT_ID}/logging`). To support a split user/technical view in the app, every emitted record needs a `category` field, and the call sites that map to user-facing events need to opt into `user`.
 
