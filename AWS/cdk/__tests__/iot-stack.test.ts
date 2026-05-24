@@ -1,6 +1,7 @@
 import { describe, test, expect } from 'vitest';
 import { App } from 'aws-cdk-lib';
 import { Template, Match } from 'aws-cdk-lib/assertions';
+import { DynamoDBStack } from '../lib/dynamodb-stack';
 import { IOTStack } from '../lib/iot-stack';
 
 const CLIENT_ID = process.env.CLIENT_ID!;
@@ -10,7 +11,10 @@ const MOBILE_APP_CERT_ARN = process.env.MOBILE_APP_CERT_ARN!;
 
 function synth(): Template {
   const app = new App();
-  const stack = new IOTStack(app, 'TestIOTStack');
+  const ddb = new DynamoDBStack(app, 'TestDdb');
+  const stack = new IOTStack(app, 'TestIOTStack', {
+    logTable: ddb.logTable,
+  });
   return Template.fromStack(stack);
 }
 
@@ -32,13 +36,48 @@ describe('IOTStack', () => {
 
     test('LoggingTopicRule routes ${CLIENT_ID}/logging to CloudWatch', () => {
       const template = synth();
-      template.resourceCountIs('AWS::IoT::TopicRule', 1);
+      template.resourceCountIs('AWS::IoT::TopicRule', 2);
       template.hasResourceProperties('AWS::IoT::TopicRule', Match.objectLike({
         RuleName: 'LoggingTopicRule',
         TopicRulePayload: Match.objectLike({
           Sql: `SELECT * FROM '${CLIENT_ID}/logging'`,
         }),
       }));
+    });
+
+    test('LoggingDynamoRule SELECTs pk + ttl and writes to GardenLogTable', () => {
+      const template = synth();
+      template.hasResourceProperties('AWS::IoT::TopicRule', Match.objectLike({
+        RuleName: 'LoggingDynamoRule',
+        TopicRulePayload: Match.objectLike({
+          Sql: Match.stringLikeRegexp(
+            `SELECT \\*, concat\\(device_id, '#', category\\) AS pk, \\(floor\\(timestamp / 1000\\) \\+ 7776000\\) AS ttl FROM '${CLIENT_ID}/logging'`,
+          ),
+          Actions: Match.arrayWith([
+            Match.objectLike({
+              DynamoDBv2: Match.objectLike({
+                PutItem: Match.objectLike({
+                  TableName: Match.anyValue(),
+                }),
+              }),
+            }),
+          ]),
+        }),
+      }));
+    });
+
+    test('LoggingDynamoRule has an IAM role that can write to GardenLogTable', () => {
+      const template = synth();
+      // The TopicRule action gets its own service-role; assert it has dynamodb:PutItem.
+      const policies = template.findResources('AWS::IAM::Policy');
+      const dynamoPolicy = Object.values(policies).find((p: any) => {
+        const stmts: any[] = p.Properties?.PolicyDocument?.Statement ?? [];
+        return stmts.some((s) => {
+          const actions = Array.isArray(s.Action) ? s.Action : [s.Action];
+          return actions.includes('dynamodb:PutItem');
+        });
+      });
+      expect(dynamoPolicy).toBeDefined();
     });
   });
 

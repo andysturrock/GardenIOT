@@ -310,7 +310,7 @@ Validation: name non-empty, at least one day selected, at least one bed selected
 
 ---
 
-### Stage 5 — Pi: structured log records with user / technical categories ⏳ Next up
+### Stage 5 — Pi: structured log records with user / technical categories ✅ Complete
 
 Today the Pi pipes everything through one [`mqttLogger`](../RaspberryPi/mqtt-logger.ts) stream (tslog → MQTT topic `${CLIENT_ID}/logging`). To support a split user/technical view in the app, every emitted record needs a `category` field, and the call sites that map to user-facing events need to opt into `user`.
 
@@ -365,7 +365,7 @@ Note: `WateringJob` doesn't currently know its parent plan's job name. Stage 5 a
 
 ---
 
-### Stage 6 — AWS: persist log records to DynamoDB + paginated GET
+### Stage 6 — AWS: persist log records to DynamoDB + paginated GET ✅ Complete
 
 The MQTT log stream becomes durable + queryable. Adds one DynamoDB table, one IoT rule, one Lambda, one API route.
 
@@ -438,7 +438,7 @@ Bump `apiGatewayDeployment.addToLogicalId({ methods: [...] })` to include `GET /
 
 ---
 
-### Stage 7 — App: dual-stream logs UI with infinite scroll
+### Stage 7 — App: dual-stream logs UI with infinite scroll ⏳ Next up
 
 The Logs tab gets a category toggle and an infinite scroll backed by the new GET endpoint, with live tail from MQTT on top.
 

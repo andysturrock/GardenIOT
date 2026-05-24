@@ -9,6 +9,7 @@ function buildStack(): Template {
   const ddb = new DynamoDBStack(app, 'TestDdb');
   const stack = new LambdaStack(app, 'TestLambdaStack', {
     temperatureHistoryTable: ddb.temperatureHistoryTable,
+    logTable: ddb.logTable,
   });
   return Template.fromStack(stack);
 }
@@ -23,14 +24,14 @@ describe('LambdaStack', () => {
   });
 
   describe('Lambda functions', () => {
-    test('creates exactly 2 lambdas (Get + Post; moisture removed)', () => {
+    test('creates 3 business lambdas: temperature Get + Post + logs Get', () => {
       const template = buildStack();
       const fns = template.findResources('AWS::Lambda::Function');
       const business = Object.values(fns).filter((f: any) => {
         const handler = f.Properties?.Handler ?? '';
-        return handler.startsWith('temperature_');
+        return handler.startsWith('temperature_') || handler.startsWith('logs_');
       });
-      expect(business).toHaveLength(2);
+      expect(business).toHaveLength(3);
     });
 
     test('lambdas run on Node 20 + arm64 with explicit log group + sane memory/timeout', () => {
@@ -64,15 +65,30 @@ describe('LambdaStack', () => {
       }));
     });
 
+    test('logs_get lambda receives GARDEN_LOG_TABLE + GARDEN_DEVICE_ID', () => {
+      const template = buildStack();
+      template.hasResourceProperties('AWS::Lambda::Function', Match.objectLike({
+        Handler: 'logs_get.lambdaHandler',
+        Environment: Match.objectLike({
+          Variables: Match.objectLike({
+            GARDEN_LOG_TABLE: Match.anyValue(),
+            GARDEN_DEVICE_ID: process.env.CLIENT_ID,
+          }),
+        }),
+      }));
+    });
+
     test('each lambda has its own log group with 1-month retention', () => {
       const template = buildStack();
       const groups = template.findResources('AWS::Logs::LogGroup');
-      // 2 explicit Lambda log groups (Get + Post)
+      // 3 explicit Lambda log groups (Get + Post + LogsGet)
       const ours = Object.values(groups).filter((g: any) => {
         const name = g.Properties?.LogGroupName ?? '';
-        return name.includes('TemperatureGetLambda') || name.includes('TemperaturePostLambda');
+        return name.includes('TemperatureGetLambda')
+          || name.includes('TemperaturePostLambda')
+          || name.includes('LogsGetLambda');
       });
-      expect(ours).toHaveLength(2);
+      expect(ours).toHaveLength(3);
       for (const group of ours) {
         expect((group as any).Properties.RetentionInDays).toBe(30);
       }
@@ -106,6 +122,20 @@ describe('LambdaStack', () => {
         .flatMap((s: any) => (Array.isArray(s.Action) ? s.Action : [s.Action]));
       expect(actions).toContain('dynamodb:PutItem');
     });
+
+    test('the LogsGet lambda gets read-only DynamoDB grants on GardenLogTable', () => {
+      const template = buildStack();
+      const policies = template.findResources('AWS::IAM::Policy');
+      const logsPolicy = Object.values(policies).find((p: any) => {
+        const roles: unknown[] = p.Properties?.Roles ?? [];
+        return roles.some((r: any) => JSON.stringify(r).includes('LogsGetLambdaServiceRole'));
+      });
+      expect(logsPolicy).toBeDefined();
+      const actions: string[] = (logsPolicy as any).Properties.PolicyDocument.Statement
+        .flatMap((s: any) => (Array.isArray(s.Action) ? s.Action : [s.Action]));
+      expect(actions).toContain('dynamodb:Query');
+      expect(actions).not.toContain('dynamodb:PutItem');
+    });
   });
 
   describe('API Gateway', () => {
@@ -131,6 +161,25 @@ describe('LambdaStack', () => {
         HttpMethod: 'POST',
         ApiKeyRequired: true,
       }));
+    });
+
+    test('GET /logs resource is wired and does NOT require an API key', () => {
+      const template = buildStack();
+      const resources = template.findResources('AWS::ApiGateway::Resource');
+      const logsResource = Object.values(resources).find(
+        (r: any) => r.Properties?.PathPart === 'logs',
+      );
+      expect(logsResource).toBeDefined();
+
+      // Find the GET method on the logs resource (matched via the LambdaIntegration's logs_get URI)
+      const methods = template.findResources('AWS::ApiGateway::Method');
+      const logsGet = Object.values(methods).find((m: any) => {
+        if (m.Properties?.HttpMethod !== 'GET') return false;
+        const uri = JSON.stringify(m.Properties?.Integration?.Uri ?? {});
+        return uri.includes('LogsGetLambda');
+      });
+      expect(logsGet).toBeDefined();
+      expect((logsGet as any).Properties.ApiKeyRequired).toBeUndefined();
     });
 
     test('creates an ApiKey + UsagePlan tied to the stage', () => {

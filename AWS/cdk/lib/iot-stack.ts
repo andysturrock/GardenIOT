@@ -1,14 +1,14 @@
-import { Stack, StackProps, RemovalPolicy } from 'aws-cdk-lib';
+import { Stack } from 'aws-cdk-lib';
 import { Construct } from 'constructs';
 import * as logs from 'aws-cdk-lib/aws-logs';
 import * as iot from 'aws-cdk-lib/aws-iot';
 import * as iot_alpha from '@aws-cdk/aws-iot-alpha';
 import * as actions from '@aws-cdk/aws-iot-actions-alpha';
-import { getEnv } from './common';
+import { getEnv, IOTStackProps } from './common';
 import { CfnPolicyProps } from 'aws-cdk-lib/aws-iot';
 
 export class IOTStack extends Stack {
-  constructor(scope: Construct, id: string, props?: StackProps) {
+  constructor(scope: Construct, id: string, props: IOTStackProps) {
     super(scope, id, props);
 
     const clientId = getEnv('CLIENT_ID', false)!;
@@ -37,6 +37,21 @@ export class IOTStack extends Stack {
       description: 'Saves messages from the logging topic to CloudWatch', // optional
       sql: iot_alpha.IotSql.fromStringAsVer20160323(`SELECT * FROM '${loggingTopic}'`),
       actions: [new actions.CloudWatchLogsAction(logGroup)],
+    });
+
+    // Second rule: archive every log record to DynamoDB for app-side
+    // paginated reads. The SELECT enriches the payload with the composite
+    // partition key and a 90-day TTL (unix seconds).
+    new iot_alpha.TopicRule(this, 'LoggingDynamoRule', {
+      topicRuleName: 'LoggingDynamoRule',
+      description: 'Archives logging-topic messages to GardenLogTable',
+      sql: iot_alpha.IotSql.fromStringAsVer20160323(
+        `SELECT *,` +
+        ` concat(device_id, '#', category) AS pk,` +
+        ` (floor(timestamp / 1000) + 7776000) AS ttl` +
+        ` FROM '${loggingTopic}'`,
+      ),
+      actions: [new actions.DynamoDBv2PutItemAction(props.logTable)],
     });
 
     const deviceThing = new iot.CfnThing(this, 'DeviceThing', {

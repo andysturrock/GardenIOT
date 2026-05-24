@@ -11,5 +11,8 @@ new IAMStack(app, 'IAMStack');
 const dynamoDBStack = new DynamoDBStack(app, 'DynamoDBStack');
 new LambdaStack(app, 'LambdaStack', {
   temperatureHistoryTable: dynamoDBStack.temperatureHistoryTable,
+  logTable: dynamoDBStack.logTable,
 });
-new IOTStack(app, 'IOTStack');
+new IOTStack(app, 'IOTStack', {
+  logTable: dynamoDBStack.logTable,
+});

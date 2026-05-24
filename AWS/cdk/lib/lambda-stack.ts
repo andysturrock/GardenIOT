@@ -19,6 +19,8 @@ export class LambdaStack extends Stack {
       iam.PermissionsBoundary.of(this).apply(boundary);
     }
 
+    const gardenDeviceId = getEnv('CLIENT_ID', false)!;
+
     const makeFunction = (id: string, handler: string) => {
       const logGroup = new logs.LogGroup(this, `${id}LogGroup`, {
         logGroupName: `/aws/lambda/${id}`,
@@ -35,15 +37,19 @@ export class LambdaStack extends Stack {
         memorySize: 256,
         environment: {
           TEMPERATURE_HISTORY_TABLE: props.temperatureHistoryTable.tableName,
+          GARDEN_LOG_TABLE: props.logTable.tableName,
+          GARDEN_DEVICE_ID: gardenDeviceId,
         },
       });
     };
 
     const temperatureGetLambda = makeFunction("TemperatureGetLambda", "temperature_get.lambdaHandler");
     const temperaturePostLambda = makeFunction("TemperaturePostLambda", "temperature_post.lambdaHandler");
+    const logsGetLambda = makeFunction("LogsGetLambda", "logs_get.lambdaHandler");
 
     props.temperatureHistoryTable.grantReadData(temperatureGetLambda);
     props.temperatureHistoryTable.grantReadWriteData(temperaturePostLambda);
+    props.logTable.grantReadData(logsGetLambda);
 
     const customDomainName = getEnv('CUSTOM_DOMAIN_NAME', false)!;
     const r53ZoneId = getEnv('R53_ZONE_ID', false)!;
@@ -81,7 +87,7 @@ export class LambdaStack extends Stack {
     // actually picks up changes like apiKeyRequired. Without this, CDK
     // reuses the existing Deployment and the stage keeps serving stale config.
     apiGatewayDeployment.addToLogicalId({
-      methods: ['GET /temperature', 'POST /temperature'],
+      methods: ['GET /temperature', 'POST /temperature', 'GET /logs'],
       apiKeyRequired: { 'POST /temperature': true },
     });
     const stage = new apigateway.Stage(this, 'Stage', {
@@ -93,11 +99,14 @@ export class LambdaStack extends Stack {
 
     const temperatureGetLambdaIntegration = new apigateway.LambdaIntegration(temperatureGetLambda);
     const temperaturePostLambdaIntegration = new apigateway.LambdaIntegration(temperaturePostLambda);
+    const logsGetLambdaIntegration = new apigateway.LambdaIntegration(logsGetLambda);
     const temperatureResource = api.root.addResource('temperature');
     temperatureResource.addMethod("GET", temperatureGetLambdaIntegration);
     temperatureResource.addMethod("POST", temperaturePostLambdaIntegration, {
       apiKeyRequired: true,
     });
+    const logsResource = api.root.addResource('logs');
+    logsResource.addMethod("GET", logsGetLambdaIntegration);
 
     // API key + usage plan: protects the write endpoint from random
     // internet traffic. Retrieve the key value with
