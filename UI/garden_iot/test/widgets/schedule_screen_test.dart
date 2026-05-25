@@ -10,6 +10,7 @@ import 'package:garden_iot/schedule_screen.dart';
 import 'package:garden_iot/serialization/garden_config.dart';
 import 'package:garden_iot/utils/env.dart';
 import 'package:provider/provider.dart';
+import 'package:timezone/data/latest.dart' as tz_data;
 
 import '../fakes/fake_mqtt_gateway.dart';
 
@@ -43,13 +44,22 @@ Future<void> _seedConfig(
 Future<void> _pumpScreen(
   WidgetTester tester, {
   required GardenConfigModel model,
+  DateTime? now,
 }) {
   // Provider must live ABOVE MaterialApp so routes pushed by the
   // screen's Navigator (e.g. the editor) can still find it.
+  // tickPeriod = 0 disables the periodic clock refresh so pumpAndSettle
+  // can settle and no Timer is left dangling at test end.
+  final pinnedNow = now ?? DateTime.now();
   return tester.pumpWidget(
     ChangeNotifierProvider<GardenConfigModel>.value(
       value: model,
-      child: const MaterialApp(home: ScheduleScreen()),
+      child: MaterialApp(
+        home: ScheduleScreen(
+          clock: () => pinnedNow,
+          tickPeriod: Duration.zero,
+        ),
+      ),
     ),
   );
 }
@@ -58,6 +68,8 @@ void main() {
   late LogModel logModel;
   late FakeMqttGateway gateway;
   late GardenConfigModel model;
+
+  setUpAll(() => tz_data.initializeTimeZones());
 
   setUp(() {
     logModel = LogModel();
@@ -187,6 +199,43 @@ void main() {
       await _pumpScreen(tester, model: model);
       await tester.pumpAndSettle();
       expect(find.text('Tomatoes, Peppers'), findsOneWidget);
+    });
+
+    testWidgets('renders Next: label per tile in the config tz',
+        (tester) async {
+      // Default config: jobs at 08:00 / 08:10 Europe/London, every day.
+      // Pin now to 2026-05-25 06:00 UTC = 07:00 BST -> next fires are
+      // today 08:00 BST (in 1h 0m) and today 08:10 BST (in 1h 10m).
+      final pinnedNow = DateTime.utc(2026, 5, 25, 6, 0);
+      await _seedConfig(tester, gateway, defaultGardenConfig());
+      gateway.reset();
+      await _pumpScreen(tester, model: model, now: pinnedNow);
+      await tester.pumpAndSettle();
+      expect(find.text('Next: today 08:00 · in 1h 0m'), findsOneWidget);
+      expect(find.text('Next: today 08:10 · in 1h 10m'), findsOneWidget);
+    });
+
+    testWidgets('Next: rolls to tomorrow once today\'s fire has passed',
+        (tester) async {
+      // 09:00 BST on Mon -> today's 08:00 fire is gone; next is tomorrow.
+      final pinnedNow = DateTime.utc(2026, 5, 25, 8, 0);
+      await _seedConfig(tester, gateway, defaultGardenConfig());
+      gateway.reset();
+      await _pumpScreen(tester, model: model, now: pinnedNow);
+      await tester.pumpAndSettle();
+      expect(find.textContaining('Next: tomorrow 08:00'), findsOneWidget);
+    });
+
+    testWidgets('Next: label drops silently when tz is unknown',
+        (tester) async {
+      final cfg = defaultGardenConfig().copyWith(tz: 'Mars/Olympus_Mons');
+      await _seedConfig(tester, gateway, cfg);
+      gateway.reset();
+      await _pumpScreen(tester, model: model);
+      await tester.pumpAndSettle();
+      // No tile crashes, just no Next: line is rendered.
+      expect(find.textContaining('Next:'), findsNothing);
+      expect(find.text('Morning veg'), findsOneWidget);
     });
   });
 }

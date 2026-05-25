@@ -10,8 +10,13 @@ import 'package:garden_iot/temperature_model.dart';
 import 'package:garden_iot/theme/app_theme.dart';
 import 'package:garden_iot/water_now_grid.dart';
 import 'package:provider/provider.dart';
+import 'package:timezone/data/latest.dart' as tz_data;
 
 void main() {
+  // Schedule screen renders next-fire times in the config's tz (e.g.
+  // Europe/London) regardless of the device tz. Loads the full IANA
+  // database (~30 KB) once at startup.
+  tz_data.initializeTimeZones();
   const pollPeriod = Duration(seconds: 5);
   final logModel = LogModel();
   final gateway = MqttGateway(logModel);
