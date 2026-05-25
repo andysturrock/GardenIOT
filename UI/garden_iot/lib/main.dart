@@ -47,19 +47,19 @@ class MyApp extends StatelessWidget {
       theme: AppTheme.light(),
       darkTheme: AppTheme.dark(),
       themeMode: ThemeMode.system,
-      home: const _AppShell(),
+      home: const AppShell(),
     );
   }
 }
 
-class _AppShell extends StatefulWidget {
-  const _AppShell();
+class AppShell extends StatefulWidget {
+  const AppShell({super.key});
 
   @override
-  State<_AppShell> createState() => _AppShellState();
+  State<AppShell> createState() => _AppShellState();
 }
 
-class _AppShellState extends State<_AppShell> {
+class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
   static const List<_Destination> _destinations = [
     _Destination(
       icon: Icons.thermostat_outlined,
@@ -85,23 +85,46 @@ class _AppShellState extends State<_AppShell> {
 
   int _index = 0;
   bool _mqttBootstrapped = false;
+  MqttGatewayLike? _gateway;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
+    // Capture the gateway now while the context is live; dispose() may
+    // run after the inherited widget tree has been deactivated.
+    _gateway = context.read<MqttGatewayLike>();
     if (!_mqttBootstrapped) {
       _mqttBootstrapped = true;
-      final bundle = DefaultAssetBundle.of(context);
-      final gateway = context.read<MqttGatewayLike>();
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        gateway.mqttConnect(bundle);
-      });
+      WidgetsBinding.instance.addPostFrameCallback((_) => _connect());
     }
   }
 
   @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    // Android suspends the TCP socket while the app is paused; the MQTT
+    // keepalive then expires and the broker drops us. Reconnect on resume
+    // so the user doesn't have to tap Retry.
+    if (state == AppLifecycleState.resumed) _connect();
+  }
+
+  void _connect() {
+    if (!mounted) return;
+    final gateway = _gateway;
+    if (gateway == null) return;
+    if (gateway.connectionState != MqttConnectivity.disconnected) return;
+    gateway.mqttConnect(DefaultAssetBundle.of(context));
+  }
+
+  @override
   void dispose() {
-    context.read<MqttGatewayLike>().mqttDisconnect();
+    WidgetsBinding.instance.removeObserver(this);
+    _gateway?.mqttDisconnect();
     super.dispose();
   }
 
