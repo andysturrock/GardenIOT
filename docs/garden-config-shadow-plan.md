@@ -515,10 +515,10 @@ Add a small `LogsApi` client class in [`UI/garden_iot/lib/utils/logs_api.dart`](
 
 ---
 
-### Stage 8 — Cleanup, CI sanity, docs ⏳ Next up
+### Stage 8 — Cleanup, CI sanity, docs ✅ Complete
 
 - **IoT policy check.** [`iot-stack.ts`](../AWS/cdk/lib/iot-stack.ts) already wildcards shadow topics with `name/*`, so no CDK change is required for the `config` shadow. Re-read it once and confirm; if I'm wrong, add explicit `name/config/*` ARNs to both Device and MobileApp policies.
-- **CDK snapshot test.** Regenerate (`AWS/cdk/__tests__/__snapshots__/`) — stage 6 adds a table + IoT rule + Lambda + API method so the snapshot will change regardless.
+- **CDK snapshot test.** Regenerate (`AWS/cdk/__tests__/__snapshots__/`) — stage 6 adds a table + IoT rule + Lambda + API method so the snapshot will change regardless. (N/A — the CDK suite is assertion-based, no snapshots ever existed; the Stage 6 changes are already covered by explicit assertions in `lambda-stack.test.ts` / `iot-stack.test.ts`.)
 - **Delete dead code on the Pi:** any lingering references to the file-store API (now-deleted `/wateringplans` constant, old serialization files, `fs/promises` import) caught at this stage.
 - **Update READMEs:**
   - [`RaspberryPi/README.md`](../RaspberryPi/README.md): add the `config` shadow to the "MQTT topics" table; remove the line about the half-built file store; document the structured `LogRecord` shape on the logging topic and the user/technical category convention.

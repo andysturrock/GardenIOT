@@ -8,12 +8,28 @@ obvious from `ls`, the per-component READMEs, or `git log`.
 ```
 RaspberryPi/       Node app on the Pi. GPIO relays + AWS IoT Thing Shadow sync.
 AWS/cdk/           CDK app: IoT thing/policy/cert, Lambda + API Gateway, DynamoDB.
-AWS/lambda-code/   Lambda handlers (temperature GET, sensor data ingest).
-UI/garden_iot/     Flutter app (Android + iOS): dials, water-now buttons, log viewer.
+AWS/lambda-code/   Lambda handlers (temperature GET/POST, logs GET).
+UI/garden_iot/     Flutter app (Android + iOS): dials, water-now buttons, schedule editor, dual-stream log viewer.
 .github/workflows/ pi-test, lambda-test, cdk-test, flutter-test, dependabot-automerge.
 ```
 
 Each component has its own README — read it before touching that component.
+
+## Shared shapes
+
+A couple of types are serialized over MQTT and re-decoded on the other
+side, so the Pi and the Flutter app keep parallel copies of them:
+
+- [`GardenConfig`](RaspberryPi/serialization/garden-config.ts) /
+  [`garden_config_model.dart`](UI/garden_iot/lib/serialization/garden_config.dart) —
+  bed names + watering schedule. Lives on the `config` named Thing Shadow;
+  app writes `desired`, Pi reflects `reported` once applied.
+- [`LogRecord`](RaspberryPi/serialization/log-record.ts) /
+  [`log_record.dart`](UI/garden_iot/lib/serialization/log_record.dart) —
+  every Pi log line (INFO+) is published as one of these on
+  `${CLIENT_ID}/logging`, tagged `category: "user" | "technical"`.
+  An IoT topic rule tee's all of them to CloudWatch and archives them to
+  `GardenLogTable` (90-day TTL) for the app's `GET /logs` Logs tab.
 
 ## Build & test
 

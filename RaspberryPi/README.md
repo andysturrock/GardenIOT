@@ -8,18 +8,21 @@ and syncs state with AWS IoT Core via MQTT Thing Shadows.
 
 ```
 .
-├── index.ts              # main loop: connect, init relays, schedule watering, heartbeat, signal handling
-├── aws-connection.ts     # MQTT connection wrapper, LWT, online/offline status, lifecycle events
-├── shadow-relay.ts       # Relay + AWS IoT Thing Shadow sync (desired/reported/delta) + safety timeout
-├── relay.ts              # bare GPIO relay wrapper (active-HIGH, BOARD pin numbering 35/33/31/29)
-├── watering-job.ts       # scheduled open-then-close cycle for a set of relays
-├── watering-plan.ts      # collection of watering jobs (persistence is half-built — TODO)
-├── mqtt-logger.ts        # tslog logger that ships INFO+ to an MQTT topic
-├── utils/getenv.ts       # .env loader
-├── __tests__/            # jest tests + mock-gpio + jest-setup
-├── ecosystem.config.js   # pm2 process definition
-├── deploy.sh             # pull-based deploy script
-└── systemd/              # gardeniot-deploy.{service,timer} for auto-deploy
+├── index.ts                       # main loop: connect, init relays, schedule watering, heartbeat, signal handling
+├── aws-connection.ts              # MQTT connection wrapper, LWT, online/offline status, lifecycle events
+├── shadow-relay.ts                # Relay + AWS IoT Thing Shadow sync (desired/reported/delta) + bed-name resolver + watchdog
+├── relay.ts                       # bare GPIO relay wrapper (active-HIGH, BOARD pin numbering 35/33/31/29)
+├── watering-job.ts                # scheduled open-then-close cycle for a set of relays
+├── watering-plan.ts               # collection of watering jobs, rebuilt from each config-shadow apply
+├── config-shadow.ts               # `config` Thing Shadow: bed names + watering schedule + Schedule-updated user log
+├── mqtt-logger.ts                 # tslog logger; publishes structured LogRecord JSON to the logging topic
+├── serialization/garden-config.ts # GardenConfig schema (shared shape between Pi and app)
+├── serialization/log-record.ts    # LogRecord schema with user/technical category tag
+├── utils/getenv.ts                # .env loader
+├── __tests__/                     # vitest tests + mock-gpio + setup
+├── ecosystem.config.js            # pm2 process definition
+├── deploy.sh                      # pull-based deploy script
+└── systemd/                       # gardeniot-deploy.{service,timer} for auto-deploy
 ```
 
 ## Env vars (.env at this directory)
@@ -38,8 +41,9 @@ and syncs state with AWS IoT Core via MQTT Thing Shadows.
 | Topic | Retained | Use |
 |-------|----------|-----|
 | `${CLIENT_ID}/status` | yes | `{online:true,timestamp,uptime_seconds}` every 60s; `{online:false}` on shutdown (graceful via `publishOffline`, ungraceful via LWT) |
-| `${CLIENT_ID}/logging` | no | Logger output (everything INFO+) |
-| `$aws/things/${CLIENT_ID}/shadow/name/RELAY${1..4}/update` | no | Reported/desired shadow updates |
+| `${CLIENT_ID}/logging` | no | Structured [`LogRecord`](serialization/log-record.ts) JSON (INFO+). Each record is tagged `category: "user"` (Watering started/stopped, Schedule updated, online/offline) or `category: "technical"` (everything else). Both are tee'd to CloudWatch; user-category records are also archived to DynamoDB for 90 days for the app's Logs tab |
+| `$aws/things/${CLIENT_ID}/shadow/name/RELAY${1..4}/update` | no | Per-relay reported/desired/delta. `ShadowRelay.onActualStateChange` emits the per-bed Watering started/stopped user log lines from this path |
+| `$aws/things/${CLIENT_ID}/shadow/name/config/update` | no | [`GardenConfig`](serialization/garden-config.ts) — bed names + watering schedule. The app writes `desired`, the Pi reflects `reported` once applied |
 
 ## Local development
 
