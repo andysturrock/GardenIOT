@@ -20,7 +20,7 @@
     "@types/rpi-gpio": "^2.1.1",
     "@typescript-eslint/eslint-plugin": "^7.0.0",
     "@typescript-eslint/parser": "^7.0.0",
-    "@vitest/coverage-v8": "^3.2.4",
+    "@vitest/coverage-v8": "^4.1.8",
     "eslint": "^8.57.0",
     "eslint-config-airbnb": "^19.0.4",
     "eslint-config-airbnb-typescript": "^18.0.0",
@@ -29,7 +29,7 @@
     "eslint-plugin-promise": "^6.1.0",
     "ts-node": "^10.9.0",
     "typescript": "^5.4.0",
-    "vitest": "^3.2.4"
+    "vitest": "^4.1.8"
   },
   "//overrides-rationale": "uuid is forced to ^11.1.1 to silence GHSA-w5hq-g745-h8pq. aws-iot-device-sdk-v2 pins uuid ^8.3.2 transitively; the advisory only affects v3/v5/v6 generators called with a buf param, and the SDK only uses v4 (whose signature is stable 8->11), so the override is API-safe.",
   "overrides": {
